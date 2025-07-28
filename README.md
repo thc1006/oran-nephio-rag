@@ -1,19 +1,18 @@
-# O-RAN × Nephio RAG 整合助手
+# O-RAN × Nephio RAG Integration Assistant
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 
-一個專為 O-RAN 和 Nephio 整合而設計的智能檢索增強生成（RAG）系統，專注於 Network Function (NF) 的 scale-out 和 scale-in 實作指導。
 
-## 🎯 專案特色
+## 🎯 Key Features
 
-- **官方文件優先**：僅從 O-RAN SC 和 Nephio 官方文件檢索資訊
-- **準確性保證**：避免過時或不準確的網路資訊
-- **專業焦點**：專注於 NF 擴縮容實作細節
-- **即時更新**：自動同步最新官方文件
-- **中文支援**：完整的繁體中文介面和回答
+- **Official Documentation Priority**: Retrieves information exclusively from O-RAN SC and Nephio official documentation
+- **Accuracy Guarantee**: Avoids outdated or inaccurate web information
+- **Professional Focus**: Concentrates on NF scaling implementation details
+- **Real-time Updates**: Automatically syncs with the latest official documentation
+- **Chinese Support**: Complete Traditional Chinese interface and responses
 
-## 檔案結構
+## File Structure
 ```
 oran-nephio-rag/
 ├── README.md
@@ -33,69 +32,66 @@ oran-nephio-rag/
 │   └── example_usage.py
 ├── docs/
 │   └── SETUP.md
-└── logs/ (執行時自動建立)
+└── logs/ (created automatically at runtime)
 ```
 
+## 🚀 Quick Start
 
+### Prerequisites
 
-## 🚀 快速開始
-
-### 前置需求
-
-- Python 3.10 或以上版本
-- Microsoft Visual C++ Build Tools（Windows）
+- Python 3.10 or higher
+- Microsoft Visual C++ Build Tools (Windows)
 - Anthropic API Key
 
-### 安裝步驟
+### Installation Steps
 
-```
-# 1. 複製專案
+```bash
+# 1. Clone the repository
 git clone https://github.com/your-username/oran-nephio-rag.git
 cd oran-nephio-rag
 ```
 
-```
-# 2. 建立虛擬環境
+```bash
+# 2. Create virtual environment
 python -m venv venv
-venv\Scripts\activate  \# Windows
-source venv/bin/activate  \# Linux/macOS
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/macOS
 ```
 
-```
-# 3. 安裝依賴
+```bash
+# 3. Install dependencies
 pip install -r requirements.txt
 ```
 
-```
-# 4. 設定環境變數
+```bash
+# 4. Configure environment variables
 cp .env.example .env
-# 編輯 .env 檔案，添加你的 ANTHROPIC_API_KEY
+# Edit the .env file and add your ANTHROPIC_API_KEY
 ```
 
-```
-# 5. 執行系統
+```bash
+# 5. Run the system
 python main.py
 ```
 
+## 📖 Usage
 
-## 📖 使用方式
+After starting the system, you can ask questions about O-RAN and Nephio integration:
 
-啟動系統後，您可以詢問關於 O-RAN 和 Nephio 整合的問題：
+- "How to implement O-RAN DU scale-out on Nephio?"
+- "What role does the O2IMS interface play in NF scaling?"
+- "How do FOCOM and SMO collaborate for automatic scaling?"
 
-- "如何在 Nephio 上實現 O-RAN DU 的 scale-out？"
-- "O2IMS 介面在 NF 擴縮中扮演什麼角色？"
-- "FOCOM 和 SMO 如何協作進行自動擴縮？"
-
-## 🛠️ 支援的文件來源
+## 🛠️ Supported Documentation Sources
 
 - [O-RAN SC Confluence](https://lf-o-ran-sc.atlassian.net/wiki/spaces/ORAN/overview)
 - [Nephio Documentation](https://docs.nephio.org/)
-- O-RAN SC 官方部落格和技術規範
+- O-RAN SC official blogs and technical specifications
 
-## 📝 授權
+## 📝 License
 
-本專案採用 Apache 2.0 授權條款 - 詳見 [LICENSE](LICENSE) 檔案。
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
-## 🤝 貢獻
+## 🤝 Contributing
 
-歡迎提交 Issue 和 Pull Request！請參閱 [CONTRIBUTING.md](CONTRIBUTING.md) 了解詳細指南。
+Issues and Pull Requests are welcome! Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
