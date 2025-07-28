@@ -1,220 +1,171 @@
 """
-O-RAN × Nephio RAG 系統主程式
+main.py - 主程式整合
 """
-import os
 import sys
+import os
 import logging
 from datetime import datetime
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-from rich.prompt import Prompt
-from rich.table import Table
 
-# 添加 src 目錄到 Python 路徑
+# 添加 src 目錄到路徑
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.oran_nephio_rag import ORANNephioRAG
-from src.config import Config
+from src.config import Config, validate_config
 
-# 設定日誌
 def setup_logging():
     """設定日誌系統"""
-    config = Config()
-    
-    # 確保日誌目錄存在
-    log_dir = os.path.dirname(config.LOG_FILE)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    
-    logging.basicConfig(
-        level=getattr(logging, config.LOG_LEVEL),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(config.LOG_FILE, encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
+    try:
+        config = Config()
+        
+        logging.basicConfig(
+            level=getattr(logging, config.LOG_LEVEL),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(config.LOG_FILE, encoding='utf-8'),
+                logging.StreamHandler()
+            ]
+        )
+        
+        # 設定第三方套件的日誌級別
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('requests').setLevel(logging.WARNING)
+        logging.getLogger('httpx').setLevel(logging.WARNING)
+        
+    except Exception as e:
+        print(f"日誌設定失敗: {e}")
+        # 使用基本配置
+        logging.basicConfig(level=logging.INFO)
 
-class RAGInterface:
-    """RAG 系統的互動式介面"""
+def main():
+    """主函數"""
+    logger = None
+    rag_system = None
     
-    def __init__(self):
-        self.console = Console()
-        self.rag_system = None
+    try:
+        # 設定日誌
+        setup_logging()
+        logger = logging.getLogger(__name__)
         
-    def show_welcome(self):
-        """顯示歡迎訊息"""
-        welcome_text = Text()
-        welcome_text.append("O-RAN × Nephio 整合查詢系統", style="bold blue")
-        welcome_text.append("\n\n專注於 Network Function Scale-out & Scale-in 實作指導", style="dim")
+        print("=" * 60)
+        print("O-RAN × Nephio 整合查詢系統")
+        print("=" * 60)
         
-        panel = Panel(
-            welcome_text,
-            title="🚀 歡迎使用",
-            border_style="blue",
-            padding=(1, 2)
-        )
+        # 驗證配置
+        logger.info("驗證系統配置...")
+        validate_config()
         
-        self.console.print(panel)
-    
-    def show_commands(self):
-        """顯示可用指令"""
-        table = Table(title="可用指令", show_header=True, header_style="bold magenta")
-        table.add_column("指令", style="cyan", no_wrap=True)
-        table.add_column("說明", style="green")
+        # 初始化 RAG 系統
+        logger.info("初始化 RAG 系統...")
+        rag_system = ORANNephioRAG()
         
-        table.add_row("quit / exit / 退出", "結束程式")
-        table.add_row("update", "更新向量資料庫")
-        table.add_row("status", "顯示系統狀態")
-        table.add_row("help", "顯示此說明")
-        table.add_row("clear", "清除螢幕")
+        # 載入向量資料庫
+        logger.info("載入向量資料庫...")
+        if not rag_system.load_existing_database():
+            print("❌ 向量資料庫載入失敗")
+            return 1
         
-        self.console.print(table)
-    
-    def show_status(self):
-        """顯示系統狀態"""
-        if not self.rag_system:
-            self.console.print("❌ 系統尚未初始化", style="red")
-            return
+        # 設定問答鏈
+        logger.info("設定問答鏈...")
+        if not rag_system.setup_qa_chain():
+            print("❌ 問答鏈設定失敗")
+            return 1
         
-        status = self.rag_system.get_system_status()
+        print("✅ 系統初始化完成！")
+        print("\n可用指令:")
+        print("  quit/exit/退出 - 結束程式")
+        print("  update - 更新向量資料庫")
+        print("  status - 顯示系統狀態")
+        print("  help - 顯示說明")
+        print("-" * 60)
         
-        table = Table(title="系統狀態", show_header=True, header_style="bold cyan")
-        table.add_column("項目", style="white")
-        table.add_column("狀態", style="green")
-        
-        table.add_row("向量資料庫", "✅ 就緒" if status["vectordb_ready"] else "❌ 未就緒")
-        table.add_row("問答鏈", "✅ 就緒" if status["qa_chain_ready"] else "❌ 未就緒")
-        table.add_row("文件來源數量", str(status["source_count"]))
-        table.add_row("啟用來源數量", str(status["enabled_sources"]))
-        table.add_row("最後更新", status["last_update"] or "未知")
-        
-        self.console.print(table)
-    
-    def initialize_system(self):
-        """初始化 RAG 系統"""
-        try:
-            self.console.print("🔄 正在初始化系統...", style="yellow")
-            
-            # 初始化 RAG 系統
-            self.rag_system = ORANNephioRAG()
-            
-            # 載入向量資料庫
-            if not self.rag_system.load_existing_database():
-                self.console.print("❌ 向量資料庫載入失敗", style="red")
-                return False
-            
-            # 設定問答鏈
-            if not self.rag_system.setup_qa_chain():
-                self.console.print("❌ 問答鏈設定失敗", style="red")
-                return False
-            
-            self.console.print("✅ 系統初始化完成！", style="green")
-            return True
-            
-        except Exception as e:
-            self.console.print(f"❌ 系統初始化失敗: {str(e)}", style="red")
-            return False
-    
-    def process_query(self, question: str):
-        """處理用戶查詢"""
-        self.console.print("🤔 正在思考中...", style="yellow")
-        
-        result = self.rag_system.query(question)
-        
-        # 顯示答案
-        answer_panel = Panel(
-            result["answer"],
-            title="💡 回答",
-            border_style="green",
-            padding=(1, 2)
-        )
-        self.console.print(answer_panel)
-        
-        # 顯示來源
-        if result.get("sources"):
-            self.console.print("\n📚 參考來源:", style="bold blue")
-            for i, source in enumerate(result["sources"], 1):
-                source_text = f"{i}. [{source['type'].upper()}] {source['description']}"
-                self.console.print(f"   {source_text}", style="dim")
-                self.console.print(f"   🔗 {source['url']}", style="blue")
-    
-    def run(self):
-        """執行主循環"""
-        self.show_welcome()
-        
-        # 初始化系統
-        if not self.initialize_system():
-            self.console.print("初始化失敗，程式結束。", style="red")
-            return
-        
-        self.show_commands()
-        self.console.print("\n" + "="*50 + "\n")
-        
+        # 主循環
         while True:
             try:
-                # 獲取用戶輸入
-                question = Prompt.ask(
-                    "\n[bold cyan]請輸入您的問題[/bold cyan]",
-                    default=""
-                ).strip()
+                question = input("\n請輸入您的問題：").strip()
                 
                 if not question:
                     continue
                 
-                # 處理指令
                 if question.lower() in ['quit', 'exit', '退出']:
-                    self.console.print("👋 再見！", style="yellow")
+                    print("👋 再見！")
                     break
                 
-                elif question.lower() == 'help':
-                    self.show_commands()
+                elif question.lower() == 'update':
+                    print("🔄 正在更新資料庫...")
+                    if rag_system.update_database():
+                        print("✅ 資料庫更新成功！")
+                    else:
+                        print("❌ 資料庫更新失敗")
                     continue
                 
                 elif question.lower() == 'status':
-                    self.show_status()
+                    try:
+                        status = rag_system.get_system_status()
+                        print("\n📊 系統狀態:")
+                        for key, value in status.items():
+                            if isinstance(value, dict):
+                                print(f"  {key}:")
+                                for sub_key, sub_value in value.items():
+                                    print(f"    {sub_key}: {sub_value}")
+                            else:
+                                print(f"  {key}: {value}")
+                    except Exception as e:
+                        print(f"❌ 無法取得系統狀態: {e}")
                     continue
                 
-                elif question.lower() == 'update':
-                    self.console.print("🔄 正在更新資料庫...", style="yellow")
-                    if self.rag_system.update_database():
-                        self.console.print("✅ 資料庫更新成功！", style="green")
-                    else:
-                        self.console.print("❌ 資料庫更新失敗", style="red")
-                    continue
-                
-                elif question.lower() == 'clear':
-                    os.system('cls' if os.name == 'nt' else 'clear')
-                    self.show_welcome()
+                elif question.lower() == 'help':
+                    print("\n📖 系統說明:")
+                    print("  本系統專注於 O-RAN 和 Nephio 整合相關問題")
+                    print("  所有回答都基於官方文件，確保準確性")
+                    print("  適合詢問 NF scale-out/scale-in 實作細節")
+                    print("  範例問題:")
+                    print("    - 如何在 Nephio 上實現 O-RAN DU 的 scale-out？")
+                    print("    - O2IMS 介面在 NF 擴縮中扮演什麼角色？")
+                    print("    - 什麼是 ProvisioningRequest CRD？")
                     continue
                 
                 # 處理問題查詢
-                self.process_query(question)
+                print("🤔 正在思考中...")
+                result = rag_system.query(question)
                 
-                self.console.print("\n" + "-"*50)
+                if result.get('error'):
+                    print(f"\n❌ 查詢錯誤: {result['error']}")
+                else:
+                    print(f"\n💡 回答：\n{result['answer']}")
+                    
+                    if result.get('sources'):
+                        print(f"\n📚 參考來源 ({len(result['sources'])} 個):")
+                        for i, source in enumerate(result['sources'][:3], 1):  # 只顯示前 3 個
+                            print(f"  {i}. [{source['type'].upper()}] {source['description']}")
+                
+                print("-" * 60)
                 
             except KeyboardInterrupt:
-                self.console.print("\n\n👋 程式被使用者中斷，再見！", style="yellow")
+                print("\n\n👋 程式被使用者中斷，再見！")
                 break
-            
             except Exception as e:
-                self.console.print(f"\n❌ 發生錯誤: {str(e)}", style="red")
-                logging.error(f"主程式錯誤: {str(e)}", exc_info=True)
-
-def main():
-    """主函數"""
-    try:
-        # 設定日誌
-        setup_logging()
+                print(f"\n❌ 發生錯誤: {str(e)}")
+                if logger:
+                    logger.error(f"主程式錯誤: {str(e)}", exc_info=True)
         
-        # 執行介面
-        interface = RAGInterface()
-        interface.run()
-        
+        return 0
+    
+    except KeyboardInterrupt:
+        print("\n\n👋 程式被使用者中斷，再見！")
+        return 0
     except Exception as e:
         print(f"程式啟動失敗: {str(e)}")
-        logging.error(f"程式啟動失敗: {str(e)}", exc_info=True)
+        if logger:
+            logger.error(f"程式啟動失敗: {str(e)}", exc_info=True)
+        return 1
+    finally:
+        # 清理資源
+        if rag_system:
+            try:
+                del rag_system
+            except Exception as e:
+                if logger:
+                    logger.debug(f"清理 RAG 系統失敗: {e}")
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
