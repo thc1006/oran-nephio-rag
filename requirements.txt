@@ -30,9 +30,9 @@ rich>=13.0.0,<14.0.0
 tqdm>=4.64.0,<5.0.0
 
 # Development and testing tools
-pytest>=7.4.0,<8.0.0
+pytest>=7.4.0,<9.0.0
 pytest-asyncio>=0.21.0,<1.0.0
-pytest-cov>=4.1.0,<5.0.0
+pytest-cov>=4.1.0,<6.0.0
 pytest-mock>=3.10.0,<4.0.0
 responses>=0.23.0,<1.0.0
 
@@ -70,3 +70,15 @@ jupyter>=1.0.0,<2.0.0; extra == "dev"
 # Async support
 aiohttp>=3.8.0,<4.0.0
 asyncio-mqtt>=0.16.0,<1.0.0; extra == "async"
+uvloop>=0.17.0,<1.0.0; extra == "async"
+
+# Monitoring dependencies
+prometheus-client>=0.17.0,<1.0.0; extra == "monitoring"
+opentelemetry-api>=1.20.0,<2.0.0; extra == "monitoring"
+opentelemetry-sdk>=1.20.0,<2.0.0; extra == "monitoring"
+opentelemetry-exporter-prometheus>=1.12.0,<2.0.0; extra == "monitoring"
+opentelemetry-exporter-otlp>=1.20.0,<2.0.0; extra == "monitoring"
+opentelemetry-exporter-jaeger-thrift>=1.20.0,<2.0.0; extra == "monitoring"
+opentelemetry-instrumentation-requests>=0.41b0,<1.0.0; extra == "monitoring"
+opentelemetry-instrumentation-logging>=0.41b0,<1.0.0; extra == "monitoring"
+opentelemetry-instrumentation-urllib3>=0.41b0,<1.0.0; extra == "monitoring"

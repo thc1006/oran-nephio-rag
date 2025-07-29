@@ -1,0 +1,521 @@
+---
+layout: default
+title: Home
+description: "O-RAN × Nephio RAG System - 智能檢索增強生成系統，專為 O-RAN 和 Nephio 技術文檔設計的 AI 問答系統"
+lang: zh-TW
+---
+
+<!DOCTYPE html>
+<html lang="{{ page.lang | default: site.lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    <meta name="keywords" content="O-RAN, Nephio, RAG, AI, 人工智慧, 5G, 電信, 網路自動化, 檢索增強生成, LangChain, Claude AI">
+    <meta name="author" content="{{ site.author.name }}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+    <meta property="og:title" content="{{ page.title | default: site.title }}">
+    <meta property="og:description" content="{{ page.description | default: site.description }}">
+    <meta property="og:image" content="{{ site.url }}{{ site.baseurl }}/assets/images/og-image.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+    <meta property="twitter:title" content="{{ page.title | default: site.title }}">
+    <meta property="twitter:description" content="{{ page.description | default: site.description }}">
+    <meta property="twitter:image" content="{{ site.url }}{{ site.baseurl }}/assets/images/og-image.png">
+    
+    <title>{{ page.title | default: site.title }}</title>
+    <link rel="canonical" href="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+    <link rel="stylesheet" href="{{ '/assets/styles/main.css' | relative_url }}">
+    <link rel="icon" type="image/png" href="{{ '/assets/images/favicon.png' | relative_url }}">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Schema.org structured data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "{{ site.title }}",
+        "description": "{{ site.description }}",
+        "url": "{{ site.url }}{{ site.baseurl }}",
+        "author": {
+            "@type": "Organization",
+            "name": "{{ site.author.name }}"
+        },
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "programmingLanguage": "Python"
+    }
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <a href="{{ '/' | relative_url }}" class="logo">
+                    <span class="logo-icon">🔮</span>
+                    <span class="logo-text">O-RAN × Nephio RAG</span>
+                </a>
+            </div>
+            <div class="navbar-menu" id="navbarMenu">
+                <a href="#features" class="navbar-item">功能特色</a>
+                <a href="#demo" class="navbar-item">即時演示</a>
+                <a href="#docs" class="navbar-item">使用說明</a>
+                <a href="#architecture" class="navbar-item">系統架構</a>
+                <a href="#community" class="navbar-item">開源社群</a>
+                <a href="{{ site.github.repository_url }}" class="navbar-item github-link">
+                    <span class="github-icon">⭐</span>
+                    GitHub
+                </a>
+            </div>
+            <div class="navbar-toggle" onclick="toggleMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        <span class="gradient-text">O-RAN × Nephio</span><br>
+                        智能問答系統
+                    </h1>
+                    <p class="hero-subtitle">
+                        基於檢索增強生成 (RAG) 技術的智能問答系統<br>
+                        專門針對 O-RAN 和 Nephio 技術文檔設計，提供精準的技術諮詢服務
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">1000+</span>
+                            <span class="stat-label">技術文檔</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">24/7</span>
+                            <span class="stat-label">智能服務</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">99.9%</span>
+                            <span class="stat-label">準確回答</span>
+                        </div>
+                    </div>
+                    <div class="hero-actions">
+                        <a href="#demo" class="btn btn-primary">🚀 立即體驗</a>
+                        <a href="#docs" class="btn btn-secondary">📖 查看文檔</a>
+                        <a href="{{ site.github.repository_url }}" class="btn btn-outline">
+                            <span class="github-icon">⭐</span> Star on GitHub
+                        </a>
+                    </div>
+                    <div class="hero-badges">
+                        <img src="https://img.shields.io/badge/python-3.9%2B-blue.svg" alt="Python Version">
+                        <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
+                        <img src="https://img.shields.io/badge/docker-ready-blue.svg" alt="Docker">
+                        <img src="https://img.shields.io/github/stars/company/oran-nephio-rag?style=social" alt="GitHub stars">
+                    </div>
+                </div>
+                <div class="hero-demo">
+                    <div class="demo-window">
+                        <div class="demo-header">
+                            <div class="demo-dots">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                            </div>
+                            <span class="demo-title">O-RAN × Nephio RAG</span>
+                        </div>
+                        <div class="demo-content">
+                            <div class="chat-message user">
+                                <div class="message-content">
+                                    如何使用 Nephio 進行 O-RAN 網路功能的擴展？
+                                </div>
+                            </div>
+                            <div class="chat-message assistant">
+                                <div class="message-content">
+                                    <div class="typing-indicator">
+                                        <span></span>
+                                        <span></span>
+                                        <span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">🚀 核心功能特色</h2>
+                <p class="section-subtitle">
+                    先進的 AI 技術與電信領域專業知識的完美結合
+                </p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3 class="feature-title">智能問答</h3>
+                    <p class="feature-description">
+                        使用 Claude AI 模型提供精確的技術問答，支援複雜查詢和上下文理解
+                    </p>
+                    <div class="feature-tech">
+                        <span class="tech-tag">Claude AI</span>
+                        <span class="tech-tag">LangChain</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📚</div>
+                    <h3 class="feature-title">官方文檔集成</h3>
+                    <p class="feature-description">
+                        自動抓取並處理 O-RAN 和 Nephio 官方文檔，確保資訊的準確性和即時性
+                    </p>
+                    <div class="feature-tech">
+                        <span class="tech-tag">Auto Sync</span>
+                        <span class="tech-tag">Web Scraping</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3 class="feature-title">語義搜索</h3>
+                    <p class="feature-description">
+                        基於向量資料庫的高效語義搜索，理解查詢意圖並提供相關度最高的結果
+                    </p>
+                    <div class="feature-tech">
+                        <span class="tech-tag">ChromaDB</span>
+                        <span class="tech-tag">Embeddings</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">異步處理</h3>
+                    <p class="feature-description">
+                        支援高併發的異步處理模式，提供快速響應和優異的系統性能
+                    </p>
+                    <div class="feature-tech">
+                        <span class="tech-tag">AsyncIO</span>
+                        <span class="tech-tag">FastAPI</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">完整監控</h3>
+                    <p class="feature-description">
+                        內建 OpenTelemetry、Prometheus 和 Grafana 監控，提供全面的可觀察性
+                    </p>
+                    <div class="feature-tech">
+                        <span class="tech-tag">Prometheus</span>
+                        <span class="tech-tag">Grafana</span>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🐳</div>
+                    <h3 class="feature-title">容器化部署</h3>
+                    <p class="feature-description">
+                        完整的 Docker 和 Docker Compose 支援，一鍵部署，輕鬆擴展
+                    </p>
+                    <div class="feature-tech">
+                        <span class="tech-tag">Docker</span>
+                        <span class="tech-tag">K8s Ready</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="demo-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">🎯 即時演示</h2>
+                <p class="section-subtitle">
+                    體驗智能問答系統的強大功能
+                </p>
+            </div>
+            <div class="demo-container">
+                <div class="demo-interface">
+                    <div class="demo-chat">
+                        <div class="chat-history" id="chatHistory">
+                            <div class="welcome-message">
+                                <div class="avatar">🤖</div>
+                                <div class="message">
+                                    <p>您好！我是 O-RAN × Nephio 智能助手。</p>
+                                    <p>您可以詢問任何關於 O-RAN 和 Nephio 技術的問題。</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="demo-input">
+                            <input type="text" id="demoQuery" placeholder="請輸入您的問題...例如：什麼是 Nephio？" maxlength="200">
+                            <button onclick="sendDemoQuery()" class="send-btn">
+                                <span class="send-icon">📤</span>
+                            </button>
+                        </div>
+                        <div class="demo-suggestions">
+                            <p>💡 建議問題：</p>
+                            <div class="suggestion-tags">
+                                <span class="suggestion-tag" onclick="setDemoQuery('什麼是 Nephio？')">什麼是 Nephio？</span>
+                                <span class="suggestion-tag" onclick="setDemoQuery('O-RAN 的核心架構是什麼？')">O-RAN 的核心架構是什麼？</span>
+                                <span class="suggestion-tag" onclick="setDemoQuery('如何部署 Nephio 叢集？')">如何部署 Nephio 叢集？</span>
+                                <span class="suggestion-tag" onclick="setDemoQuery('O-RAN CU 和 DU 的區別？')">O-RAN CU 和 DU 的區別？</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="demo-info">
+                        <div class="info-card">
+                            <h4>🔬 技術說明</h4>
+                            <ul>
+                                <li>使用 Claude AI 進行自然語言處理</li>
+                                <li>基於官方 O-RAN 和 Nephio 文檔</li>
+                                <li>向量資料庫實現語義搜索</li>
+                                <li>支援繁體中文和英文查詢</li>
+                            </ul>
+                        </div>
+                        <div class="info-card">
+                            <h4>📈 即時統計</h4>
+                            <div class="demo-stats">
+                                <div class="demo-stat">
+                                    <span class="stat-value" id="queryCount">0</span>
+                                    <span class="stat-label">查詢次數</span>
+                                </div>
+                                <div class="demo-stat">
+                                    <span class="stat-value" id="avgTime">0ms</span>
+                                    <span class="stat-label">平均響應時間</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="architecture">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">🏗️ 系統架構</h2>
+                <p class="section-subtitle">
+                    現代化的微服務架構，支援高效能和高可擴展性
+                </p>
+            </div>
+            <div class="architecture-diagram">
+                <div class="arch-layer">
+                    <h3 class="layer-title">使用者介面層</h3>
+                    <div class="layer-components">
+                        <div class="component">Web UI</div>
+                        <div class="component">REST API</div>
+                        <div class="component">CLI Tool</div>
+                    </div>
+                </div>
+                <div class="arch-arrow">⬇️</div>
+                <div class="arch-layer">
+                    <h3 class="layer-title">應用服務層</h3>
+                    <div class="layer-components">
+                        <div class="component highlight">RAG Engine</div>
+                        <div class="component">Query Processor</div>
+                        <div class="component">Document Loader</div>
+                    </div>
+                </div>
+                <div class="arch-arrow">⬇️</div>
+                <div class="arch-layer">
+                    <h3 class="layer-title">AI 服務層</h3>
+                    <div class="layer-components">
+                        <div class="component">Claude AI</div>
+                        <div class="component">Embeddings</div>
+                        <div class="component">Vector Search</div>
+                    </div>
+                </div>
+                <div class="arch-arrow">⬇️</div>
+                <div class="arch-layer">
+                    <h3 class="layer-title">資料儲存層</h3>
+                    <div class="layer-components">
+                        <div class="component">ChromaDB</div>
+                        <div class="component">Document Cache</div>
+                        <div class="component">Metadata Store</div>
+                    </div>
+                </div>
+                <div class="arch-layer monitoring">
+                    <h3 class="layer-title">監控 & 可觀察性</h3>
+                    <div class="layer-components">
+                        <div class="component">Prometheus</div>
+                        <div class="component">Grafana</div>
+                        <div class="component">Jaeger</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section id="docs" class="quickstart">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">⚡ 快速開始</h2>
+                <p class="section-subtitle">
+                    三步驟快速部署你的智能問答系統
+                </p>
+            </div>
+            <div class="quickstart-steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3 class="step-title">克隆 & 安裝</h3>
+                        <div class="code-block">
+                            <pre><code>git clone https://github.com/company/oran-nephio-rag.git
+cd oran-nephio-rag
+pip install -r requirements.txt</code></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3 class="step-title">設定環境</h3>
+                        <div class="code-block">
+                            <pre><code>cp .env.example .env
+# 編輯 .env 並設定 ANTHROPIC_API_KEY</code></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3 class="step-title">初始化 & 運行</h3>
+                        <div class="code-block">
+                            <pre><code>python -c "from src import create_rag_system; rag = create_rag_system(); rag.build_vector_database()"
+python -c "from src import quick_query; print(quick_query('什麼是 Nephio？'))"</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="docker-option">
+                <h3>🐳 或使用 Docker 一鍵部署</h3>
+                <div class="code-block">
+                    <pre><code>docker-compose -f docker-compose.prod.yml up -d</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Community Section -->
+    <section id="community" class="community">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">🌍 開源社群</h2>
+                <p class="section-subtitle">
+                    加入我們的全球開發者社群，一起建構更好的電信技術生態
+                </p>
+            </div>
+            <div class="community-grid">
+                <div class="community-card">
+                    <div class="community-icon">⭐</div>
+                    <h3>GitHub</h3>
+                    <p>查看源碼、提交 Issue、參與開發</p>
+                    <a href="{{ site.github.repository_url }}" class="community-link">前往 GitHub →</a>
+                </div>
+                <div class="community-card">
+                    <div class="community-icon">💬</div>
+                    <h3>討論區</h3>
+                    <p>技術討論、功能建議、經驗分享</p>
+                    <a href="{{ site.github.repository_url }}/discussions" class="community-link">參與討論 →</a>
+                </div>
+                <div class="community-card">
+                    <div class="community-icon">📖</div>
+                    <h3>文檔</h3>
+                    <p>完整的 API 文檔和使用指南</p>
+                    <a href="https://oran-nephio-rag.readthedocs.io/" class="community-link">查看文檔 →</a>
+                </div>
+                <div class="community-card">
+                    <div class="community-icon">🐛</div>
+                    <h3>問題回報</h3>
+                    <p>回報 Bug、請求新功能</p>
+                    <a href="{{ site.github.repository_url }}/issues" class="community-link">提交 Issue →</a>
+                </div>
+            </div>
+            <div class="contribute-section">
+                <h3>🤝 如何貢獻</h3>
+                <div class="contribute-steps">
+                    <div class="contribute-step">
+                        <span class="contribute-number">1</span>
+                        <span>Fork 專案</span>
+                    </div>
+                    <div class="contribute-step">
+                        <span class="contribute-number">2</span>
+                        <span>建立功能分支</span>
+                    </div>
+                    <div class="contribute-step">
+                        <span class="contribute-number">3</span>
+                        <span>提交 PR</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>專案</h4>
+                    <ul>
+                        <li><a href="{{ site.github.repository_url }}">GitHub 源碼</a></li>
+                        <li><a href="{{ site.github.repository_url }}/releases">版本歷史</a></li>
+                        <li><a href="{{ site.github.repository_url }}/issues">問題追蹤</a></li>
+                        <li><a href="{{ site.github.repository_url }}/wiki">Wiki</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>技術</h4>
+                    <ul>
+                        <li><a href="https://www.o-ran.org/">O-RAN Alliance</a></li>
+                        <li><a href="https://nephio.org/">Nephio Project</a></li>
+                        <li><a href="https://www.anthropic.com/">Anthropic Claude</a></li>
+                        <li><a href="https://langchain.com/">LangChain</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>社群</h4>
+                    <ul>
+                        <li><a href="{{ site.github.repository_url }}/discussions">討論區</a></li>
+                        <li><a href="https://oran-nephio-rag.readthedocs.io/">文檔</a></li>
+                        <li><a href="mailto:{{ site.author.email }}">聯繫我們</a></li>
+                        <li><a href="/blog">部落格</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>授權</h4>
+                    <ul>
+                        <li><a href="{{ site.github.repository_url }}/blob/main/LICENSE">MIT License</a></li>
+                        <li><a href="/privacy">隱私政策</a></li>
+                        <li><a href="/terms">服務條款</a></li>
+                        <li><a href="/changelog">更新日誌</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 {{ site.author.name }}. Made with ❤️ for the Telecom and Cloud Native Community.</p>
+                <div class="footer-badges">
+                    <img src="https://img.shields.io/badge/built%20with-❤️-red" alt="Built with love">
+                    <img src="https://img.shields.io/badge/powered%20by-Claude%20AI-blue" alt="Powered by Claude AI">
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ '/assets/scripts/main.js' | relative_url }}"></script>
+</body>
+</html>

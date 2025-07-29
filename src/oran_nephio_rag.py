@@ -5,6 +5,7 @@ O-RAN × Nephio RAG 系統核心模組
 import os
 import time
 import logging
+import shutil
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -20,9 +21,11 @@ from langchain.prompts import PromptTemplate
 try:
     from .config import Config
     from .document_loader import DocumentLoader
+    from .simple_monitoring import get_monitoring, monitor_query
 except ImportError:
     from config import Config
     from document_loader import DocumentLoader
+    from simple_monitoring import get_monitoring, monitor_query
 
 # 設定模組日誌記錄器
 logger = logging.getLogger(__name__)
@@ -95,8 +98,17 @@ class VectorDatabaseManager:
             logger.info("✅ 向量資料庫建立成功")
             return True
             
+        except ImportError as e:
+            logger.error(f"❌ 缺少必要的依賴包: {e}")
+            return False
+        except MemoryError as e:  
+            logger.error(f"❌ 記憶體不足，無法建立向量資料庫: {e}")
+            return False
+        except OSError as e:
+            logger.error(f"❌ 檔案系統錯誤: {e}")
+            return False
         except Exception as e:
-            logger.error(f"❌ 建立向量資料庫失敗: {e}")
+            logger.error(f"❌ 建立向量資料庫時發生未預期的錯誤: {e}")
             return False
     
     def load_existing_database(self) -> bool:
@@ -233,6 +245,7 @@ class QueryProcessor:
             logger.error(f"❌ 問答鏈設定失敗: {e}")
             return False
     
+    @monitor_query("rag_query")
     def process_query(self, question: str) -> Dict[str, Any]:
         """處理查詢"""
         if not self.qa_chain:
@@ -282,6 +295,10 @@ class ORANNephioRAG:
         self.vector_manager = VectorDatabaseManager(self.config)
         self.query_processor = QueryProcessor(self.config)
         
+        # 初始化監控
+        self.monitoring = get_monitoring()
+        self.monitoring.start()
+        
         logger.info("✅ O-RAN × Nephio RAG 系統初始化完成")
     
     def build_vector_database(self) -> bool:
@@ -293,8 +310,16 @@ class ORANNephioRAG:
             enabled_sources = [source for source in self.config.OFFICIAL_SOURCES if source.enabled]
             documents = self.document_loader.load_all_documents(enabled_sources)
             
+            # 記錄載入的文件數量
+            self.monitoring.record_documents_loaded(len(documents))
+            
             # 建立向量資料庫
-            return self.vector_manager.build_vector_database(documents)
+            success = self.vector_manager.build_vector_database(documents)
+            
+            # 更新向量資料庫狀態
+            self.monitoring.set_vectordb_ready(success)
+            
+            return success
             
         except Exception as e:
             logger.error(f"建立向量資料庫失敗: {e}")
@@ -302,7 +327,9 @@ class ORANNephioRAG:
     
     def load_existing_database(self) -> bool:
         """載入現有向量資料庫"""
-        return self.vector_manager.load_existing_database()
+        success = self.vector_manager.load_existing_database()
+        self.monitoring.set_vectordb_ready(success)
+        return success
     
     def setup_qa_chain(self) -> bool:
         """設定問答鏈"""

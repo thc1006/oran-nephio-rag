@@ -295,10 +295,18 @@ class DocumentLoader:
                 
                 return doc
                 
+            except requests.exceptions.Timeout as e:
+                logger.warning(f"請求超時 (嘗試 {attempt + 1}/{self.max_retries}): {source.url}")
+            except requests.exceptions.ConnectionError as e:
+                logger.warning(f"連接錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
+            except requests.exceptions.HTTPError as e:
+                logger.warning(f"HTTP 錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - 狀態碼 {e.response.status_code}")
             except requests.exceptions.RequestException as e:
-                logger.warning(f"網路請求錯誤 (嘗試 {attempt + 1}): {str(e)}")
+                logger.warning(f"網路請求錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
+            except ValueError as e:
+                logger.warning(f"內容驗證失敗 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
             except Exception as e:
-                logger.warning(f"載入錯誤 (嘗試 {attempt + 1}): {str(e)}")
+                logger.warning(f"未預期的錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
             
             # 重試前等待
             if attempt < self.max_retries - 1:

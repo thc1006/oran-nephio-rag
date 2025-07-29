@@ -1,0 +1,225 @@
+<!-- Language Detection and Redirect Script -->
+<script>
+(function() {
+    'use strict';
+    
+    // Get user's preferred language
+    const userLang = navigator.language || navigator.languages[0] || 'zh-TW';
+    const supportedLangs = ['zh-TW', 'en'];
+    const currentPath = window.location.pathname;
+    const baseUrl = '{{ site.baseurl }}';
+    
+    // Check if we're already on a language-specific page
+    const isOnLangPage = supportedLangs.some(lang => 
+        currentPath.startsWith(baseUrl + '/' + lang + '/') || 
+        currentPath.startsWith('/' + lang + '/')
+    );
+    
+    // Only redirect if not already on a language page and it's the root
+    if (!isOnLangPage && (currentPath === baseUrl + '/' || currentPath === '/')) {
+        let preferredLang = 'zh-TW'; // default
+        
+        // Map user language to supported languages
+        if (userLang.startsWith('en')) {
+            preferredLang = 'en';
+        } else if (userLang.startsWith('zh')) {
+            preferredLang = 'zh-TW';
+        }
+        
+        // Check if user has a language preference stored
+        const storedLang = localStorage.getItem('preferred-language');
+        if (storedLang && supportedLangs.includes(storedLang)) {
+            preferredLang = storedLang;
+        }
+        
+        // Redirect to appropriate language version if not default
+        if (preferredLang !== 'zh-TW') {
+            window.location.href = baseUrl + '/' + preferredLang + '/';
+        }
+    }
+    
+    // Store current language preference
+    const currentLang = getCurrentLanguage();
+    if (currentLang && supportedLangs.includes(currentLang)) {
+        localStorage.setItem('preferred-language', currentLang);
+    }
+    
+    function getCurrentLanguage() {
+        if (currentPath.includes('/en/')) return 'en';
+        return 'zh-TW';
+    }
+})();
+</script>
+
+<!-- Performance Monitoring -->
+<script>
+(function() {
+    'use strict';
+    
+    // Web Vitals monitoring
+    function sendToAnalytics(metric) {
+        // Send to Google Analytics if available
+        if (typeof gtag !== 'undefined') {
+            gtag('event', metric.name, {
+                value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
+                event_category: 'Web Vitals',
+                event_label: metric.id,
+                non_interaction: true,
+            });
+        }
+        
+        // Log to console for debugging
+        console.log('Web Vital:', metric.name, metric.value);
+    }
+    
+    // Load web-vitals library
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/web-vitals@3/dist/web-vitals.iife.js';
+    script.onload = function() {
+        if (window.webVitals) {
+            window.webVitals.getCLS(sendToAnalytics);
+            window.webVitals.getFID(sendToAnalytics);
+            window.webVitals.getFCP(sendToAnalytics);
+            window.webVitals.getLCP(sendToAnalytics);
+            window.webVitals.getTTFB(sendToAnalytics);
+        }
+    };
+    document.head.appendChild(script);
+})();
+</script>
+
+<!-- Critical CSS -->
+<style>
+/* Critical above-the-fold styles */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e5e7eb;
+    z-index: 1000;
+}
+
+.hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+    padding-top: 70px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* Loading animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Hide content until fonts are loaded */
+.wf-loading h1,
+.wf-loading h2,
+.wf-loading h3,
+.wf-loading p {
+    visibility: hidden;
+}
+
+.wf-active h1,
+.wf-active h2,
+.wf-active h3,
+.wf-active p,
+.wf-inactive h1,
+.wf-inactive h2,
+.wf-inactive h3,
+.wf-inactive p {
+    visibility: visible;
+}
+</style>
+
+<!-- Font Loading Optimization -->
+<script>
+(function() {
+    'use strict';
+    
+    // Add font loading class
+    document.documentElement.classList.add('wf-loading');
+    
+    // Check if fonts are already cached
+    if (sessionStorage.getItem('fonts-loaded')) {
+        document.documentElement.classList.remove('wf-loading');
+        document.documentElement.classList.add('wf-active');
+        return;
+    }
+    
+    // Load fonts
+    const fontLoadTimeout = setTimeout(function() {
+        document.documentElement.classList.remove('wf-loading');
+        document.documentElement.classList.add('wf-inactive');
+    }, 3000);
+    
+    document.fonts.ready.then(function() {
+        clearTimeout(fontLoadTimeout);
+        document.documentElement.classList.remove('wf-loading');
+        document.documentElement.classList.add('wf-active');
+        sessionStorage.setItem('fonts-loaded', 'true');
+    });
+})();
+</script>
+
+<!-- Resource Hints -->
+{% if page.url == '/' %}
+<!-- Prefetch likely next pages -->
+<link rel="prefetch" href="{{ '/docs/' | relative_url }}">
+<link rel="prefetch" href="{{ '/api/' | relative_url }}">
+{% endif %}
+
+<!-- Preload critical resources -->
+<link rel="preload" href="{{ '/assets/styles/main.css' | relative_url }}" as="style">
+<link rel="preload" href="{{ '/assets/scripts/main.js' | relative_url }}" as="script">
+
+<!-- Language Selector JSON-LD -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "{{ site.title }}",
+    "url": "{{ site.url }}{{ site.baseurl }}",
+    "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "{{ site.url }}{{ site.baseurl }}/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+    },
+    "inLanguage": [
+        {
+            "@type": "Language",
+            "name": "Traditional Chinese",
+            "alternateName": "zh-TW"
+        },
+        {
+            "@type": "Language", 
+            "name": "English",
+            "alternateName": "en"
+        }
+    ]
+}
+</script>
