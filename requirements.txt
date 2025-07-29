@@ -1,30 +1,58 @@
-# 核心依賴
+# 核心 LangChain 框架
 langchain==0.2.16
 langchain-community==0.2.16
 langchain-anthropic==0.3.17
 
-# 向量資料庫
+# 向量資料庫和嵌入
 chromadb==0.5.3
-
-# 嵌入模型
 sentence-transformers==2.2.2
 
-# 網頁爬取
-beautifulsoup4==4.12.2
+# HTTP 和網頁處理
 requests==2.31.0
+beautifulsoup4==4.12.2
 lxml==4.9.3
 
-# 工具類
+# 環境和配置管理
 python-dotenv==1.0.0
+
+# 排程和自動化
 schedule==1.2.0
+
+# Atlassian API (備用)
 atlassian-python-api==3.41.0
 
-# 日誌和監控
+# 用戶介面增強
 rich==13.7.1
 tqdm==4.66.1
 
-# 開發和測試
+# 開發和測試工具
 pytest==7.4.3
 pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# 程式碼品質
 black==23.12.1
 flake8==6.1.0
+mypy==1.8.0
+
+# 系統工具
+psutil==5.9.6
+pathlib2==2.3.7
+
+# 日期時間處理
+python-dateutil==2.8.2
+
+# JSON 和數據處理
+jsonschema==4.20.0
+pydantic==2.5.2
+
+# 網路安全
+urllib3==2.1.0
+certifi==2023.11.17
+
+# 並發處理
+asyncio==3.4.3
+threading2==0.1.1
+
+# 記憶體和效能
+memory-profiler==0.61.0
