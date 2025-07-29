@@ -13,7 +13,10 @@
       "Bash(mkdir:*)",
       "Bash(find:*)",
       "Bash(touch:*)",
-      "WebFetch(domain:developer.puter.com)"
+      "WebFetch(domain:developer.puter.com)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
