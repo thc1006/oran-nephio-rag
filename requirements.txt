@@ -5,7 +5,7 @@ langchain-anthropic==0.3.17
 
 # 向量資料庫和嵌入
 chromadb==0.5.3
-sentence-transformers==2.2.2
+sentence-transformers==3.0.1
 
 # HTTP 和網頁處理
 requests==2.31.0
@@ -14,12 +14,14 @@ lxml==4.9.3
 
 # 環境和配置管理
 python-dotenv==1.0.0
+pydantic-settings==2.3.4
 
 # 排程和自動化
 schedule==1.2.0
 
 # Atlassian API (備用)
-atlassian-python-api==3.41.0
+# atlassian-python-api==3.41.0  # 已註解：此套件依賴 Pydantic v1，與 LangChain (v2) 衝突。
+#                                # 若需使用，建議在獨立的虛擬環境中運行。
 
 # 用戶介面增強
 rich==13.7.1
@@ -44,7 +46,7 @@ python-dateutil==2.8.2
 
 # JSON 和數據處理
 jsonschema==4.20.0
-pydantic==2.5.2
+pydantic==2.8.2
 
 # 網路安全
 urllib3==2.1.0
