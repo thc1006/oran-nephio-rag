@@ -191,7 +191,7 @@ class Config:
                 errors.append("至少需要啟用一個官方文件來源")
             
             if errors:
-                raise ValueError(f"配置驗證失敗:\n" + "\n".join(f"- {error}" for error in errors))
+                raise ValueError("配置驗證失敗:\n" + "\n".join(f"- {error}" for error in errors))
             
             logger.info("✅ 配置驗證通過")
             return True

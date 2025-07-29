@@ -1,0 +1,239 @@
+# Alertmanager Configuration for O-RAN × Nephio RAG System
+# Based on 2024 alerting best practices
+
+global:
+  smtp_smarthost: 'mailhog:1025'
+  smtp_from: 'oran-rag-alerts@company.com'
+  smtp_auth_username: ''
+  smtp_auth_password: ''
+  smtp_require_tls: false
+
+# Route configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default-receiver'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 5m
+      routes:
+        # System down alerts - page immediately
+        - match:
+            alertname: RAGSystemDown
+          receiver: 'pager-critical'
+          group_wait: 0s
+          repeat_interval: 2m
+
+    # Warning alerts - regular notification
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+
+    # Info alerts - daily digest
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+      group_wait: 5m
+      repeat_interval: 24h
+
+    # Service-specific routing
+    - match:
+        service: security
+      receiver: 'security-alerts'
+      group_wait: 0s
+      repeat_interval: 15m
+
+    # Performance alerts
+    - match:
+        service: rag-system
+      receiver: 'performance-alerts'
+      group_wait: 1m
+      repeat_interval: 1h
+
+# Receivers configuration
+receivers:
+  # Default receiver
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'devops-team@company.com'
+        subject: '[O-RAN RAG] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+        headers:
+          priority: 'normal'
+
+  # Critical alerts - multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'devops-team@company.com,sre-team@company.com'
+        subject: '[CRITICAL] O-RAN RAG System Alert'
+        body: |
+          🚨 CRITICAL ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ if .EndsAt }}Ended: {{ .EndsAt.Format "2006-01-02 15:04:05" }}{{ end }}
+          {{ end }}
+          
+          Please investigate immediately!
+        headers:
+          priority: 'high'
+    
+    # Slack webhook (example)
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts-critical'
+        title: 'Critical Alert: O-RAN RAG System'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          Service: {{ .Labels.service }} | Severity: {{ .Labels.severity }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+
+  # Pager for system down alerts
+  - name: 'pager-critical'
+    # PagerDuty integration (example)
+    pagerduty_configs:
+      - routing_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
+        description: 'O-RAN RAG System is Down'
+        severity: 'critical'
+        client: 'Alertmanager'
+        client_url: 'http://localhost:9093'
+        details:
+          summary: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          environment: 'production'
+          service: 'oran-rag-system'
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'devops-team@company.com'
+        subject: '[WARNING] O-RAN RAG System Alert'
+        body: |
+          ⚠️ WARNING ALERT ⚠️
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+          
+          Please review when convenient.
+        headers:
+          priority: 'normal'
+
+  # Info alerts - daily digest
+  - name: 'info-alerts'
+    email_configs:
+      - to: 'devops-team@company.com'
+        subject: '[INFO] O-RAN RAG Daily Alert Digest'
+        body: |
+          📊 Daily Alert Digest
+          
+          {{ range .Alerts }}
+          - {{ .Annotations.summary }}
+            Service: {{ .Labels.service }}
+            Time: {{ .StartsAt.Format "15:04:05" }}
+          {{ end }}
+        headers:
+          priority: 'low'
+
+  # Security alerts - special handling
+  - name: 'security-alerts'
+    email_configs:
+      - to: 'security-team@company.com,devops-team@company.com'
+        subject: '[SECURITY] O-RAN RAG Security Alert'
+        body: |
+          🔒 SECURITY ALERT 🔒
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+          
+          This requires immediate security review!
+        headers:
+          priority: 'high'
+    
+    # Microsoft Teams webhook (example)
+    webhook_configs:
+      - url: 'https://outlook.office.com/webhook/YOUR/TEAMS/WEBHOOK'
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: 'alertmanager'
+            password: 'webhook-password'
+
+  # Performance alerts
+  - name: 'performance-alerts'
+    email_configs:
+      - to: 'performance-team@company.com'
+        subject: '[PERFORMANCE] O-RAN RAG Performance Alert'
+        body: |
+          📈 PERFORMANCE ALERT 📈
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+          
+          Performance degradation detected. Please investigate.
+
+# Inhibit rules - prevent spam
+inhibit_rules:
+  # If system is down, don't alert on individual components
+  - source_match:
+      alertname: RAGSystemDown
+    target_match_re:
+      alertname: (HighCPUUsage|HighMemoryUsage|HighQueryLatency)
+    equal: ['service']
+
+  # If there's a critical error rate, don't alert on high latency
+  - source_match:
+      alertname: CriticalErrorRate
+    target_match:
+      alertname: HighQueryLatency
+    equal: ['service']
+
+  # If vector DB is down, don't alert on query failures
+  - source_match:
+      alertname: VectorDBConnectionFailure
+    target_match:
+      alertname: HighErrorRate
+    equal: ['service']
+
+# Mute rules for maintenance windows
+mute_time_intervals:
+  - name: 'maintenance-window'
+    time_intervals:
+      - times:
+          - start_time: '02:00'
+            end_time: '04:00'
+        weekdays: ['sunday']
+        months: ['1:12']
+
+# Templates for custom formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

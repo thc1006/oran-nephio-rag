@@ -27,33 +27,33 @@ def setup_logging() -> None:
     """設定日誌系統"""
     try:
         config = Config()
-        
+
         # 確保日誌目錄存在
         log_dir = os.path.dirname(config.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
-        
+
         # 設定日誌格式
         log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        
+
         # 配置日誌處理器
         handlers = [
             logging.FileHandler(config.LOG_FILE, encoding='utf-8'),
             logging.StreamHandler()
         ]
-        
+
         logging.basicConfig(
             level=getattr(logging, config.LOG_LEVEL, logging.INFO),
             format=log_format,
             handlers=handlers,
             force=True  # 覆蓋現有配置
         )
-        
+
         # 設定第三方套件的日誌級別
         logging.getLogger('urllib3').setLevel(logging.WARNING)
         logging.getLogger('requests').setLevel(logging.WARNING)
         logging.getLogger('httpx').setLevel(logging.WARNING)
         logging.getLogger('chromadb').setLevel(logging.WARNING)
-        
+
     except Exception as e:
         print(f"⚠️ 日誌設定失敗: {e}")
         # 使用基本日誌配置
@@ -93,7 +93,7 @@ def display_examples() -> None:
         "Nephio 的 GitOps 流程如何支援大規模擴縮？",
         "Free5GC 網路功能如何在 Nephio 上部署和擴縮？"
     ]
-    
+
     for i, example in enumerate(examples, 1):
         print(f"  {i}. {example}")
     print()
@@ -107,64 +107,64 @@ def format_system_status(status: dict) -> str:
     output = []
     output.append("📊 系統狀態:")
     output.append("-" * 30)
-    
+
     # 基本狀態
     vectordb_status = "✅ 就緒" if status.get("vectordb_ready") else "❌ 未就緒"
     qa_chain_status = "✅ 就緒" if status.get("qa_chain_ready") else "❌ 未就緒"
-    
+
     output.append(f"向量資料庫: {vectordb_status}")
     output.append(f"問答鏈: {qa_chain_status}")
-    
+
     # 來源統計
     output.append(f"文件來源總數: {status.get('total_sources', 0)}")
     output.append(f"啟用來源數: {status.get('enabled_sources', 0)}")
-    
+
     # 更新時間
     last_update = status.get('last_update')
     if last_update:
         output.append(f"最後更新: {last_update}")
     else:
         output.append("最後更新: 未知")
-    
+
     # 向量資料庫資訊
     vectordb_info = status.get('vectordb_info', {})
     if vectordb_info and not vectordb_info.get('error'):
         doc_count = vectordb_info.get('document_count', 0)
         output.append(f"文件塊數量: {doc_count}")
-    
+
     # 載入統計
     load_stats = status.get('load_statistics', {})
     if load_stats:
         success_rate = load_stats.get('success_rate', 0)
         output.append(f"文件載入成功率: {success_rate}%")
-    
+
     return "\n".join(output)
 
 def main() -> int:
     """主函數"""
     logger: Optional[logging.Logger] = None
     rag_system: Optional[ORANNephioRAG] = None
-    
+
     try:
         # 設定日誌
         setup_logging()
         logger = logging.getLogger(__name__)
         logger.info("程式啟動")
-        
+
         # 顯示歡迎訊息
         display_welcome()
-        
+
         # 驗證配置
         logger.info("驗證系統配置...")
         print("🔍 驗證系統配置...")
         validate_config()
         print("✅ 配置驗證通過")
-        
+
         # 初始化 RAG 系統
         logger.info("初始化 RAG 系統...")
         print("🚀 初始化 RAG 系統...")
         rag_system = ORANNephioRAG()
-        
+
         # 載入向量資料庫
         logger.info("載入向量資料庫...")
         print("📚 載入向量資料庫...")
@@ -173,7 +173,7 @@ def main() -> int:
             logger.error("向量資料庫載入失敗")
             return 1
         print("✅ 向量資料庫載入成功")
-        
+
         # 設定問答鏈
         logger.info("設定問答鏈...")
         print("🔗 設定問答鏈...")
@@ -182,42 +182,42 @@ def main() -> int:
             logger.error("問答鏈設定失敗")
             return 1
         print("✅ 問答鏈設定成功")
-        
+
         print("\n🎉 系統初始化完成！")
         display_commands()
-        
+
         # 主要互動循環
         while True:
             try:
                 # 獲取用戶輸入
                 question = input("\n請輸入您的問題：").strip()
-                
+
                 if not question:
                     continue
-                
+
                 # 處理特殊指令
                 if question.lower() in ['quit', 'exit', '退出']:
                     print("👋 感謝使用！再見！")
                     logger.info("用戶正常退出程式")
                     break
-                
+
                 elif question.lower() == 'help':
                     display_commands()
                     continue
-                
+
                 elif question.lower() == 'clear':
                     clear_screen()
                     display_welcome()
                     continue
-                
+
                 elif question.lower() == 'examples':
                     display_examples()
                     continue
-                
+
                 elif question.lower() == 'update':
                     print("🔄 正在更新向量資料庫...")
                     logger.info("用戶觸發資料庫更新")
-                    
+
                     if rag_system.update_database():
                         print("✅ 向量資料庫更新成功！")
                         logger.info("向量資料庫更新成功")
@@ -225,7 +225,7 @@ def main() -> int:
                         print("❌ 向量資料庫更新失敗")
                         logger.error("向量資料庫更新失敗")
                     continue
-                
+
                 elif question.lower() == 'status':
                     try:
                         status = rag_system.get_system_status()
@@ -238,21 +238,21 @@ def main() -> int:
                 # 處理一般問題查詢
                 print("🤔 正在思考中...")
                 logger.info(f"處理用戶查詢: {question[:50]}...")
-                
+
                 start_time = datetime.now()
                 result = rag_system.query(question)
                 end_time = datetime.now()
-                
+
                 query_time = (end_time - start_time).total_seconds()
                 logger.info(f"查詢完成，耗時: {query_time:.2f} 秒")
-                
+
                 # 顯示結果
                 if result.get('error'):
                     print(f"\n❌ 查詢錯誤: {result['error']}")
                     logger.error(f"查詢錯誤: {result['error']}")
                 else:
                     print(f"\n💡 回答：\n{result['answer']}")
-                    
+
                     # 顯示參考來源
                     sources = result.get('sources', [])
                     if sources:
@@ -261,11 +261,11 @@ def main() -> int:
                             source_type = source.get('type', 'UNKNOWN').upper()
                             description = source.get('description', '未知')
                             print(f"  {i}. [{source_type}] {description}")
-                    
+
                     # 顯示查詢統計
                     if result.get('query_time'):
                         print(f"\n⚡ 查詢耗時: {result['query_time']} 秒")
-                
+
                 print("-" * 60)
                 
             except KeyboardInterrupt:
