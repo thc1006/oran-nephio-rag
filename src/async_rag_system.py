@@ -14,7 +14,13 @@ import json
 # AsyncIO imports
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from asyncio import Semaphore, gather, create_task
-import uvloop  # High-performance event loop
+
+# Optional high-performance event loop
+try:
+    import uvloop
+    UVLOOP_AVAILABLE = True
+except ImportError:
+    UVLOOP_AVAILABLE = False
 
 # LangChain async components
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -369,10 +375,10 @@ class AsyncORANNephioRAG:
         logger.info("Initializing async RAG system...")
         
         # Use uvloop for better performance if available
-        try:
+        if UVLOOP_AVAILABLE:
             uvloop.install()
             logger.info("Using uvloop for enhanced performance")
-        except ImportError:
+        else:
             logger.info("uvloop not available, using standard asyncio")
         
         # Initialize components

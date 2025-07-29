@@ -1,0 +1,68 @@
+# GitHub Pages 配置
+title: "O-RAN × Nephio RAG System"
+description: "智能檢索增強生成系統 - 專為 O-RAN 和 Nephio 技術文檔設計的 AI 問答系統"
+url: "https://company.github.io/oran-nephio-rag"
+baseurl: "/oran-nephio-rag"
+
+# 作者資訊
+author:
+  name: "Development Team"
+  email: "dev-team@company.com"
+
+# GitHub 資訊
+github_username: company
+repository: oran-nephio-rag
+github:
+  repository_url: "https://github.com/company/oran-nephio-rag"
+
+# 網站設定
+lang: zh-TW
+timezone: Asia/Taipei
+
+# 社交媒體
+social:
+  github: company
+  email: dev-team@company.com
+
+# SEO 設定
+google_analytics: # 可在後續添加 GA 追蹤代碼
+google_site_verification: # 可在後續添加 Google Search Console 驗證
+
+# 主題設定
+theme: minima
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# 頁面設定
+show_excerpts: true
+paginate: 5
+
+# 排除檔案
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - src/
+  - tests/
+  - docker/
+  - monitoring/
+  - .venv/
+  - venv/
+  - __pycache__/
+  - "*.pyc"
+  - ".env*"
+  - requirements*.txt
+  - pyproject.toml
+  - Dockerfile*
+  - docker-compose*.yml
+
+# 包含檔案
+include:
+  - _pages
+  - assets

@@ -191,34 +191,46 @@ class Config:
                 errors.append("至少需要啟用一個官方文件來源")
             
             if errors:
-                raise ValueError("配置驗證失敗:\n" + "\n".join(f"- {error}" for error in errors))
+                error_message = "配置驗證失敗:\n" + "\n".join(f"- {error}" for error in errors)
+                logger.error(f"❌ {error_message}")
+                raise ValueError(error_message)
             
             logger.info("✅ 配置驗證通過")
             return True
             
-        except Exception as e:
-            logger.error(f"❌ 配置驗證失敗: {e}")
+        except ValueError:
+            # 重新拋出 ValueError，保持原始錯誤訊息
             raise
+        except Exception as e:
+            error_message = f"配置驗證過程中發生未預期的錯誤: {str(e)}"
+            logger.error(f"❌ {error_message}")
+            raise RuntimeError(error_message) from e
     
     @classmethod
     def _ensure_directories(cls):
         """確保必要目錄存在"""
-        try:
-            # 確保日誌目錄存在
-            log_dir = pathlib.Path(cls.LOG_FILE).parent
-            log_dir.mkdir(parents=True, exist_ok=True)
-            
-            # 確保向量資料庫目錄存在
-            vectordb_dir = pathlib.Path(cls.VECTOR_DB_PATH)
-            vectordb_dir.mkdir(parents=True, exist_ok=True)
-            
-            # 確保嵌入模型快取目錄存在
-            embeddings_dir = pathlib.Path(cls.EMBEDDINGS_CACHE_PATH)
-            embeddings_dir.mkdir(parents=True, exist_ok=True)
-            
-        except Exception as e:
-            logger.error(f"建立目錄失敗: {e}")
-            raise
+        directories = [
+            ("日誌目錄", pathlib.Path(cls.LOG_FILE).parent),
+            ("向量資料庫目錄", pathlib.Path(cls.VECTOR_DB_PATH)),
+            ("嵌入模型快取目錄", pathlib.Path(cls.EMBEDDINGS_CACHE_PATH))
+        ]
+        
+        for name, directory in directories:
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                logger.debug(f"✅ {name} 已確保存在: {directory}")
+            except PermissionError as e:
+                error_message = f"權限不足，無法建立{name}: {directory}"
+                logger.error(f"❌ {error_message}")
+                raise PermissionError(error_message) from e
+            except OSError as e:
+                error_message = f"無法建立{name}: {directory} - {str(e)}"
+                logger.error(f"❌ {error_message}")
+                raise OSError(error_message) from e
+            except Exception as e:
+                error_message = f"建立{name}時發生未預期的錯誤: {directory} - {str(e)}"
+                logger.error(f"❌ {error_message}")
+                raise RuntimeError(error_message) from e
     
     @classmethod
     def get_enabled_sources(cls) -> List[DocumentSource]:
