@@ -11,8 +11,13 @@ from typing import List, Optional, Dict, Any
 
 # LangChain imports
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
+# Use new langchain-huggingface package to avoid deprecation warnings
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    # Fallback to community version if huggingface package not available
+    from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_anthropic import ChatAnthropic
 from langchain.docstore.document import Document
