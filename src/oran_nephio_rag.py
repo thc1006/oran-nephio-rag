@@ -27,10 +27,12 @@ try:
     from .config import Config
     from .document_loader import DocumentLoader
     from .simple_monitoring import get_monitoring, monitor_query
+    from .api_adapters import LLMManager
 except ImportError:
     from config import Config
     from document_loader import DocumentLoader
     from simple_monitoring import get_monitoring, monitor_query
+    from api_adapters import LLMManager
 
 # 設定模組日誌記錄器
 logger = logging.getLogger(__name__)
@@ -184,37 +186,62 @@ class VectorDatabaseManager:
 
 
 class QueryProcessor:
-    """查詢處理器"""
+    """查詢處理器 - 支援多種 API 模式"""
     
     def __init__(self, config: Optional[Config] = None):
         self.config = config or Config()
+        self.llm_manager = None
         self.llm = None
         self.qa_chain = None
         self._setup_llm()
     
     def _setup_llm(self):
-        """設定語言模型"""
+        """設定語言模型 - 支援多種 API 模式"""
         try:
-            if not self.config.ANTHROPIC_API_KEY:
-                raise ValueError("ANTHROPIC_API_KEY 未設定")
+            # 創建 LLM 管理器
+            llm_config = {
+                'api_key': self.config.ANTHROPIC_API_KEY,
+                'model_name': self.config.CLAUDE_MODEL,
+                'max_tokens': self.config.CLAUDE_MAX_TOKENS,
+                'temperature': self.config.CLAUDE_TEMPERATURE,
+                'base_url': getattr(self.config, 'LOCAL_MODEL_URL', None)
+            }
             
-            self.llm = ChatAnthropic(
-                model_name=self.config.CLAUDE_MODEL,
-                api_key=self.config.ANTHROPIC_API_KEY,
-                max_tokens_to_sample=self.config.CLAUDE_MAX_TOKENS,
-                temperature=self.config.CLAUDE_TEMPERATURE
-            )
-            logger.info("✅ Claude 模型設定成功")
+            self.llm_manager = LLMManager(llm_config)
+            
+            # 根據 API 模式設定 LLM
+            api_mode = os.getenv('API_MODE', 'anthropic').lower()
+            
+            if api_mode == 'anthropic' and self.config.ANTHROPIC_API_KEY:
+                # 使用傳統的 ChatAnthropic 以確保與 LangChain 完全相容
+                self.llm = ChatAnthropic(
+                    model_name=self.config.CLAUDE_MODEL,
+                    api_key=self.config.ANTHROPIC_API_KEY,
+                    max_tokens_to_sample=self.config.CLAUDE_MAX_TOKENS,
+                    temperature=self.config.CLAUDE_TEMPERATURE
+                )
+                logger.info("✅ Claude 模型設定成功 (官方 API 模式)")
+            else:
+                # 對於其他模式，使用我們的適配器系統
+                self.llm = None  # 將在 process_query 中直接使用 llm_manager
+                logger.info(f"✅ LLM 管理器設定成功 ({api_mode} 模式)")
             
         except Exception as e:
-            logger.error(f"❌ Claude 模型設定失敗: {e}")
-            raise
+            logger.error(f"❌ LLM 設定失敗: {e}")
+            # 如果失敗，至少嘗試創建 LLM 管理器
+            try:
+                self.llm_manager = LLMManager()
+                logger.info("✅ 已切換到預設 LLM 管理器")
+            except:
+                raise e
     
     def setup_qa_chain(self, retriever) -> bool:
-        """設定問答鏈"""
+        """設定問答鏈 - 支援多種 API 模式"""
         try:
-            # 自訂提示模板
-            prompt_template = """你是一位專精於 O-RAN 和 Nephio 技術的專家助手。請根據提供的上下文資訊，用繁體中文回答問題。
+            # 檢查是否使用傳統模式
+            if self.llm is not None:
+                # 傳統 LangChain 模式
+                prompt_template = """你是一位專精於 O-RAN 和 Nephio 技術的專家助手。請根據提供的上下文資訊，用繁體中文回答問題。
 
 請遵循以下原則：
 1. 只根據提供的上下文資訊回答問題
@@ -230,20 +257,24 @@ class QueryProcessor:
 
 回答："""
 
-            prompt = PromptTemplate(
-                template=prompt_template,
-                input_variables=["context", "question"]
-            )
+                prompt = PromptTemplate(
+                    template=prompt_template,
+                    input_variables=["context", "question"]
+                )
+                
+                self.qa_chain = RetrievalQA.from_chain_type(
+                    llm=self.llm,
+                    chain_type="stuff",
+                    retriever=retriever,
+                    chain_type_kwargs={"prompt": prompt},
+                    return_source_documents=True
+                )
+                logger.info("✅ 問答鏈設定成功 (LangChain 模式)")
+            else:
+                # 適配器模式 - 儲存 retriever 以供後續使用
+                self.retriever = retriever
+                logger.info("✅ 檢索器設定成功 (適配器模式)")
             
-            self.qa_chain = RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=retriever,
-                chain_type_kwargs={"prompt": prompt},
-                return_source_documents=True
-            )
-            
-            logger.info("✅ 問答鏈設定成功")
             return True
             
         except Exception as e:
@@ -252,22 +283,66 @@ class QueryProcessor:
     
     @monitor_query("rag_query")
     def process_query(self, question: str) -> Dict[str, Any]:
-        """處理查詢"""
-        if not self.qa_chain:
-            return {
-                "error": "qa_chain_not_ready",
-                "answer": "系統尚未準備就緒，請稍後再試。"
-            }
-        
+        """處理查詢 - 支援多種 API 模式"""
         try:
             start_time = time.time()
-            result = self.qa_chain({"query": question})
-            end_time = time.time()
             
-            # 處理來源文件
-            sources = []
-            if result.get("source_documents"):
-                for doc in result["source_documents"]:
+            if self.qa_chain is not None:
+                # 傳統 LangChain 模式
+                result = self.qa_chain({"query": question})
+                end_time = time.time()
+                
+                # 處理來源文件
+                sources = []
+                if result.get("source_documents"):
+                    for doc in result["source_documents"]:
+                        metadata = doc.metadata
+                        sources.append({
+                            "url": metadata.get("source_url", ""),
+                            "type": metadata.get("source_type", ""),
+                            "description": metadata.get("description", ""),
+                            "title": metadata.get("title", ""),
+                            "content_preview": doc.page_content[:self.config.CONTENT_PREVIEW_LENGTH] + "..." if len(doc.page_content) > self.config.CONTENT_PREVIEW_LENGTH else doc.page_content
+                        })
+                
+                return {
+                    "answer": result["result"],
+                    "sources": sources,
+                    "query_time": round(end_time - start_time, 2)
+                }
+                
+            elif hasattr(self, 'retriever') and self.llm_manager:
+                # 適配器模式
+                # 1. 使用檢索器取得相關文件
+                relevant_docs = self.retriever.get_relevant_documents(question)
+                
+                # 2. 構建上下文
+                context = "\n\n".join([doc.page_content for doc in relevant_docs])
+                
+                # 3. 構建提示
+                prompt = f"""你是一位專精於 O-RAN 和 Nephio 技術的專家助手。請根據提供的上下文資訊，用繁體中文回答問題。
+
+請遵循以下原則：
+1. 只根據提供的上下文資訊回答問題
+2. 如果上下文中沒有相關資訊，請明確說明
+3. 回答要準確、詳細且有條理
+4. 優先引用官方文件的內容
+5. 如果涉及技術實作，請提供具體的步驟或範例
+
+上下文資訊：
+{context}
+
+問題：{question}
+
+回答："""
+                
+                # 4. 使用 LLM 管理器查詢
+                llm_result = self.llm_manager.query(prompt)
+                end_time = time.time()
+                
+                # 5. 處理來源文件
+                sources = []
+                for doc in relevant_docs:
                     metadata = doc.metadata
                     sources.append({
                         "url": metadata.get("source_url", ""),
@@ -276,12 +351,20 @@ class QueryProcessor:
                         "title": metadata.get("title", ""),
                         "content_preview": doc.page_content[:self.config.CONTENT_PREVIEW_LENGTH] + "..." if len(doc.page_content) > self.config.CONTENT_PREVIEW_LENGTH else doc.page_content
                     })
-            
-            return {
-                "answer": result["result"],
-                "sources": sources,
-                "query_time": round(end_time - start_time, 2)
-            }
+                
+                return {
+                    "answer": llm_result.get("answer", "無法取得回答"),
+                    "sources": sources,
+                    "query_time": round(end_time - start_time, 2),
+                    "adapter_mode": llm_result.get("adapter_mode"),
+                    "model": llm_result.get("model"),
+                    "error": llm_result.get("error")
+                }
+            else:
+                return {
+                    "error": "system_not_ready",
+                    "answer": "系統尚未準備就緒，請稍後再試。"
+                }
             
         except Exception as e:
             logger.error(f"查詢處理失敗: {e}")
@@ -408,8 +491,14 @@ class ORANNephioRAG:
             vectordb_ready = self.vector_manager.vectordb is not None
             vectordb_info = self.vector_manager.get_database_info()
             
-            # 檢查問答鏈
-            qa_chain_ready = self.query_processor.qa_chain is not None
+            # 檢查問答鏈/檢索器
+            qa_chain_ready = (self.query_processor.qa_chain is not None or 
+                            hasattr(self.query_processor, 'retriever'))
+            
+            # 檢查 LLM 管理器狀態
+            llm_status = {}
+            if hasattr(self.query_processor, 'llm_manager') and self.query_processor.llm_manager:
+                llm_status = self.query_processor.llm_manager.get_status()
             
             # 檢查文件來源
             total_sources = len(self.config.OFFICIAL_SOURCES)
@@ -422,6 +511,7 @@ class ORANNephioRAG:
                 "vectordb_ready": vectordb_ready,
                 "qa_chain_ready": qa_chain_ready,
                 "vectordb_info": vectordb_info,
+                "llm_status": llm_status,
                 "total_sources": total_sources,
                 "enabled_sources": enabled_sources,
                 "load_statistics": load_stats,
@@ -431,6 +521,40 @@ class ORANNephioRAG:
         except Exception as e:
             logger.error(f"取得系統狀態失敗: {e}")
             return {"error": str(e)}
+    
+    def switch_api_mode(self, new_mode: str) -> Dict[str, Any]:
+        """切換 API 模式"""
+        try:
+            if hasattr(self.query_processor, 'llm_manager') and self.query_processor.llm_manager:
+                success = self.query_processor.llm_manager.switch_mode(new_mode)
+                
+                if success:
+                    # 重新設定問答鏈
+                    if hasattr(self.query_processor, 'retriever'):
+                        self.setup_qa_chain()
+                    
+                    return {
+                        "success": True,
+                        "message": f"已切換到 {new_mode} 模式",
+                        "new_status": self.query_processor.llm_manager.get_status()
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"不支援的 API 模式: {new_mode}"
+                    }
+            else:
+                return {
+                    "success": False,
+                    "message": "LLM 管理器未初始化"
+                }
+                
+        except Exception as e:
+            logger.error(f"切換 API 模式失敗: {e}")
+            return {
+                "success": False,
+                "message": f"切換失敗: {str(e)}"
+            }
 
 
 def create_rag_system(config: Optional[Config] = None) -> ORANNephioRAG:

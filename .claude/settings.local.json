@@ -12,7 +12,8 @@
       "Bash(.venv/Scripts/pip.exe uninstall:*)",
       "Bash(mkdir:*)",
       "Bash(find:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "WebFetch(domain:developer.puter.com)"
     ],
     "deny": []
   }
