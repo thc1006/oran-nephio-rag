@@ -1,7 +1,7 @@
-# 核心 LangChain 框架
-langchain==0.2.16
-langchain-community==0.2.16
-langchain-anthropic==0.3.17
+# 核心 LangChain 框架 - 使用寬鬆版本避免衝突
+langchain>=0.2.16
+langchain-community>=0.2.16
+langchain-anthropic>=0.3.17
 
 # 向量資料庫和嵌入
 chromadb==0.5.3
@@ -14,7 +14,7 @@ lxml==4.9.3
 
 # 環境和配置管理
 python-dotenv==1.0.0
-pydantic-settings==2.3.4
+pydantic-settings>=2.4.0
 
 # 排程和自動化
 schedule==1.2.0

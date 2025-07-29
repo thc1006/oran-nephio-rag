@@ -1,83 +1,83 @@
-# 🏗️ O-RAN × Nephio RAG 智慧檢索增強生成系統
+# 🏗️ O-RAN × Nephio RAG: Intelligent Retrieval-Augmented Generation System
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.2.16-green.svg)](https://langchain.com/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Claude](https://img.shields.io/badge/Claude-3.0-purple.svg)](https://www.anthropic.com/)
 
-> **專業的 O-RAN 與 Nephio 整合知識檢索系統**  
-> 基於官方文檔構建，提供準確可靠的技術問答服務
+> **Professional O-RAN and Nephio Integration Knowledge Retrieval System**  
+> Built on official documentation to provide accurate and reliable technical Q&A services
 
-## 🌟 核心特色
+## 🌟 Core Features
 
-### 🎯 **官方文檔優先策略**
-- 📚 **權威來源**：專注於 O-RAN SC 和 Nephio 官方文檔
-- 🔄 **即時同步**：自動更新最新發布內容
-- ✅ **準確性保證**：避免過時或不準確的網路資訊
+### 🎯 **Official Documentation Priority Strategy**
+- 📚 **Authoritative Sources**: Focuses exclusively on O-RAN SC and Nephio official documentation
+- 🔄 **Real-time Synchronization**: Automatically updates with the latest released content
+- ✅ **Accuracy Guarantee**: Avoids outdated or inaccurate online information
 
-### 🚀 **先進技術架構**
-- 🤖 **Claude 3.0 AI**：最新的 Anthropic 大語言模型
-- 🔍 **向量檢索**：ChromaDB + Sentence-Transformers 語義搜尋
-- 📊 **RAG 架構**：檢索增強生成，確保回答準確性
-- 🌐 **中文優先**：完整的繁體中文介面和回應
+### 🚀 **Advanced Technical Architecture**
+- 🤖 **Claude 3.0 AI**: Latest Anthropic large language model
+- 🔍 **Vector Retrieval**: ChromaDB + Sentence-Transformers semantic search
+- 📊 **RAG Architecture**: Retrieval-Augmented Generation ensuring answer accuracy
+- 🌐 **Multi-language Support**: Comprehensive English interface and responses
 
-### 💼 **專業應用場景**
-- 🏗️ **NF 擴展實現**：O-RAN DU/CU 在 Nephio 上的 scale-out 細節
-- 🔧 **整合架構**：O2IMS 介面、FOCOM、SMO 協作機制
-- 📋 **部署指南**：實際生產環境的最佳實踐
+### 💼 **Professional Application Scenarios**
+- 🏗️ **NF Scale-out Implementation**: Detailed O-RAN DU/CU scale-out on Nephio
+- 🔧 **Integration Architecture**: O2IMS interfaces, FOCOM, SMO collaboration mechanisms
+- 📋 **Deployment Guides**: Production environment best practices
 
-## 📁 專案結構
+## 📁 Project Structure
 
 ```
 oran-nephio-rag/
-├── 📄 README.md                    # 本檔案
-├── 📋 requirements.txt              # Python 依賴清單
-├── 🔐 .env.example                 # 環境變數範例
-├── 🚫 .gitignore                   # Git 忽略規則
-├── 🚀 main.py                      # 主程式進入點
-├── 📁 src/                         # 核心原始碼
+├── 📄 README.md                    # This file
+├── 📋 requirements.txt              # Python dependencies
+├── 🔐 .env.example                 # Environment variables template
+├── 🚫 .gitignore                   # Git ignore rules
+├── 🚀 main.py                      # Main program entry point
+├── 📁 src/                         # Core source code
 │   ├── 🔗 __init__.py
-│   ├── 🧠 oran_nephio_rag.py       # RAG 系統核心
-│   ├── 📚 document_loader.py        # 文檔載入器
-│   └── ⚙️ config.py                # 配置管理
-├── 📁 scripts/                     # 工具腳本
-│   ├── 🔄 auto_sync.py             # 自動同步服務
-│   └── 🧪 test_system.py           # 系統測試
-├── 📁 examples/                    # 使用範例
+│   ├── 🧠 oran_nephio_rag.py       # RAG system core
+│   ├── 📚 document_loader.py        # Document loader
+│   └── ⚙️ config.py                # Configuration management
+├── 📁 scripts/                     # Utility scripts
+│   ├── 🔄 auto_sync.py             # Automatic synchronization service
+│   └── 🧪 test_system.py           # System testing
+├── 📁 examples/                    # Usage examples
 │   ├── 🔗 __init__.py
-│   └── 💡 example_usage.py         # 功能示範
-├── 📁 tests/                       # 單元測試
+│   └── 💡 example_usage.py         # Feature demonstrations
+├── 📁 tests/                       # Unit tests
 │   ├── 🔗 __init__.py
 │   ├── 🧪 test_config.py
 │   ├── 🧪 test_document_loader.py
 │   └── 🧪 test_rag_system.py
-├── 📁 docs/                        # 詳細文檔
-│   └── 📖 SETUP.md                 # 安裝設定指南
-├── 📁 logs/                        # 系統日誌 (自動建立)
-├── 📁 oran_nephio_vectordb/        # 向量資料庫 (自動建立)
-└── 📁 embeddings_cache/            # 嵌入模型快取 (自動建立)
+├── 📁 docs/                        # Detailed documentation
+│   └── 📖 SETUP.md                 # Installation setup guide
+├── 📁 logs/                        # System logs (auto-created)
+├── 📁 oran_nephio_vectordb/        # Vector database (auto-created)
+└── 📁 embeddings_cache/            # Embedding model cache (auto-created)
 ```
 
-## 🚀 快速開始
+## 🚀 Quick Start
 
-### 📋 系統需求
+### 📋 System Requirements
 
-- **Python**: 3.10 或更高版本
-- **作業系統**: Windows 10/11, macOS, Linux
-- **記憶體**: 建議 8GB 以上
-- **磁碟空間**: 至少 2GB 可用空間
-- **API 金鑰**: Anthropic Claude API Key
+- **Python**: 3.10 or higher
+- **Operating System**: Windows 10/11, macOS, Linux
+- **Memory**: Recommended 8GB or more
+- **Disk Space**: At least 2GB available space
+- **API Key**: Anthropic Claude API Key
 
-### ⚡ 三分鐘安裝
+### ⚡ 3-Minute Installation
 
 ```bash
-# 1️⃣ 複製專案
+# 1️⃣ Clone the project
 git clone https://github.com/thc1006/oran-nephio-rag.git
 cd oran-nephio-rag
 ```
 
 ```bash
-# 2️⃣ 建立 Python 虛擬環境
+# 2️⃣ Create Python virtual environment
 python -m venv .venv
 
 # Windows
@@ -88,251 +88,251 @@ source .venv/bin/activate
 ```
 
 ```bash
-# 3️⃣ 安裝依賴套件
+# 3️⃣ Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 ```bash
-# 4️⃣ 設定環境變數
+# 4️⃣ Configure environment variables
 cp .env.example .env
-# 編輯 .env 檔案，加入您的 ANTHROPIC_API_KEY
+# Edit .env file and add your ANTHROPIC_API_KEY
 ```
 
 ```bash
-# 5️⃣ 執行系統測試
+# 5️⃣ Run system test
 python scripts/test_system.py
 ```
 
 ```bash
-# 6️⃣ 啟動系統
+# 6️⃣ Start the system
 python main.py
 ```
 
-## � 使用方式
+## 💡 Usage
 
-### 🎯 **互動式查詢**
+### 🎯 **Interactive Query**
 
-啟動系統後，您可以詢問關於 O-RAN 和 Nephio 整合的問題：
+After starting the system, you can ask questions about O-RAN and Nephio integration:
 
 ```
-🤖 O-RAN × Nephio RAG 系統
-請輸入您的問題 (輸入 'quit' 或 'exit' 結束): 
+🤖 O-RAN × Nephio RAG System
+Enter your question (type 'quit' or 'exit' to end): 
 
-❓ 如何在 Nephio 上實現 O-RAN DU 的 scale-out？
+❓ How to implement O-RAN DU scale-out on Nephio?
 
-💡 回答：
-在 Nephio 平台上實現 O-RAN DU (Distributed Unit) 的 scale-out 需要考慮以下幾個關鍵步驟...
+💡 Answer:
+Implementing O-RAN DU (Distributed Unit) scale-out on the Nephio platform requires considering the following key steps...
 
-📚 參考來源 (3 個):
+📚 Reference Sources (3):
   1. [NEPHIO] Nephio O-RAN Integration Architecture
   2. [ORAN_SC] O-RAN DU Scaling Best Practices  
   3. [NEPHIO] Free5GC NF Deployment Guide
 
-⚡ 查詢耗時: 2.3 秒
+⚡ Query Time: 2.3 seconds
 ```
 
-### 🔧 **程式化使用**
+### 🔧 **Programmatic Usage**
 
 ```python
 from src.oran_nephio_rag import ORANNephioRAG, quick_query
 
-# 快速查詢
-answer = quick_query("什麼是 O2IMS 介面？")
+# Quick query
+answer = quick_query("What is the O2IMS interface?")
 
-# 完整功能使用
+# Full functionality usage
 rag = ORANNephioRAG()
-rag.load_documents()  # 首次使用載入文檔
-result = rag.query("FOCOM 在 O-RAN 架構中的作用？")
+rag.load_documents()  # Load documents on first use
+result = rag.query("What is the role of FOCOM in O-RAN architecture?")
 ```
 
-### 📊 **常見查詢範例**
+### 📊 **Common Query Examples**
 
-| 問題類別 | 範例問題 |
+| Question Category | Example Question |
 |---------|---------|
-| **架構設計** | "O-RAN 與 Nephio 的整合架構是什麼？" |
-| **NF 擴展** | "如何實現 O-RAN CU 的水平擴展？" |
-| **介面協議** | "O2IMS 介面的主要功能和設計原則？" |
-| **部署實務** | "在生產環境中部署 O-RAN DU 的最佳實踐？" |
-| **故障排除** | "O-RAN NF 擴展失敗的常見原因和解決方案？" |
+| **Architecture Design** | "What is the integration architecture of O-RAN and Nephio?" |
+| **NF Scaling** | "How to implement horizontal scaling of O-RAN CU?" |
+| **Interface Protocols** | "What are the main functions and design principles of O2IMS interface?" |
+| **Deployment Practices** | "Best practices for deploying O-RAN DU in production environments?" |
+| **Troubleshooting** | "Common causes and solutions for O-RAN NF scaling failures?" |
 
-## 🔧 高級配置
+## 🔧 Advanced Configuration
 
-### ⚙️ **環境變數詳解**
+### ⚙️ **Environment Variables Explained**
 
 ```env
-# 🔑 必要配置
-ANTHROPIC_API_KEY=sk-ant-api03-你的API金鑰
+# 🔑 Required Configuration
+ANTHROPIC_API_KEY=sk-ant-api03-your-api-key
 
-# 🤖 Claude 模型設定
-CLAUDE_MODEL=claude-3-sonnet-20240229    # 模型版本
-CLAUDE_MAX_TOKENS=4000                    # 最大回應長度
-CLAUDE_TEMPERATURE=0.1                    # 創造性程度 (0-1)
+# 🤖 Claude Model Settings
+CLAUDE_MODEL=claude-3-sonnet-20240229    # Model version
+CLAUDE_MAX_TOKENS=4000                    # Maximum response length
+CLAUDE_TEMPERATURE=0.1                    # Creativity level (0-1)
 
-# 📊 向量資料庫設定
-VECTOR_DB_PATH=./oran_nephio_vectordb     # 資料庫路徑
-COLLECTION_NAME=oran_nephio_official      # 集合名稱
-CHUNK_SIZE=1000                           # 文字塊大小
-CHUNK_OVERLAP=200                         # 重疊字數
+# 📊 Vector Database Settings
+VECTOR_DB_PATH=./oran_nephio_vectordb     # Database path
+COLLECTION_NAME=oran_nephio_official      # Collection name
+CHUNK_SIZE=1000                           # Text chunk size
+CHUNK_OVERLAP=200                         # Overlap characters
 
-# 🔄 自動同步設定
-AUTO_SYNC_ENABLED=true                    # 啟用自動同步
-SYNC_INTERVAL_HOURS=24                    # 同步間隔 (小時)
+# 🔄 Auto-sync Settings
+AUTO_SYNC_ENABLED=true                    # Enable auto-sync
+SYNC_INTERVAL_HOURS=24                    # Sync interval (hours)
 
-# 📝 日誌設定
-LOG_LEVEL=INFO                            # 日誌級別
-LOG_FILE=logs/oran_nephio_rag.log         # 日誌檔案路徑
+# 📝 Logging Settings
+LOG_LEVEL=INFO                            # Log level
+LOG_FILE=logs/oran_nephio_rag.log         # Log file path
 ```
 
-### � **自動同步服務**
+### 🔄 **Auto-sync Service**
 
 ```bash
-# 啟動自動同步背景服務
+# Start auto-sync background service
 python scripts/auto_sync.py --daemon
 
-# 手動執行一次同步
+# Manually execute sync once
 python scripts/auto_sync.py --once
 
-# 檢查同步狀態
+# Check sync status
 python scripts/auto_sync.py --status
 ```
 
-## 📚 支援的官方文檔來源
+## 📚 Supported Official Documentation Sources
 
-### 🏛️ **Nephio 官方文檔**
-- 📖 [核心架構文檔](https://docs.nephio.org/docs/architecture/)
-- 🔧 [O-RAN 整合指南](https://docs.nephio.org/docs/network-architecture/o-ran-integration/)
-- 💻 [使用者指南](https://docs.nephio.org/docs/guides/user-guides/)
-- 📋 [安裝部署](https://docs.nephio.org/docs/installation/)
+### 🏛️ **Nephio Official Documentation**
+- 📖 [Core Architecture Documentation](https://docs.nephio.org/docs/architecture/)
+- 🔧 [O-RAN Integration Guide](https://docs.nephio.org/docs/network-architecture/o-ran-integration/)
+- 💻 [User Guides](https://docs.nephio.org/docs/guides/user-guides/)
+- 📋 [Installation & Deployment](https://docs.nephio.org/docs/installation/)
 
-### 🌐 **O-RAN SC 官方資源**
-- 📚 [技術規範文檔](https://oransc.org/specifications/)
-- 🏗️ [架構參考](https://wiki.o-ran-sc.org/)
-- 🔧 [實作指南](https://docs.o-ran-sc.org/)
-- 📊 [發布說明](https://wiki.o-ran-sc.org/display/REL)
+### 🌐 **O-RAN SC Official Resources**
+- 📚 [Technical Specification Documents](https://oransc.org/specifications/)
+- 🏗️ [Architecture Reference](https://wiki.o-ran-sc.org/)
+- 🔧 [Implementation Guides](https://docs.o-ran-sc.org/)
+- 📊 [Release Notes](https://wiki.o-ran-sc.org/display/REL)
 
-## 🧪 測試與品質保證
+## 🧪 Testing & Quality Assurance
 
-### ✅ **自動化測試**
+### ✅ **Automated Testing**
 
 ```bash
-# 執行完整測試套件
+# Run complete test suite
 pytest tests/ -v
 
-# 執行特定測試模組
+# Run specific test module
 pytest tests/test_rag_system.py -v
 
-# 執行測試並生成覆蓋率報告
+# Run tests and generate coverage report
 pytest tests/ --cov=src --cov-report=html
 ```
 
-### 📊 **系統健檢**
+### 📊 **System Health Check**
 
 ```bash
-# 完整系統測試
+# Complete system test
 python scripts/test_system.py
 
-# 快速健康檢查
-python -c "from src.oran_nephio_rag import quick_query; print(quick_query('測試'))"
+# Quick health check
+python -c "from src.oran_nephio_rag import quick_query; print(quick_query('test'))"
 ```
 
-## �️ 故障排除
+## 🛠️ Troubleshooting
 
-### ❗ **常見問題**
+### ❗ **Common Issues**
 
 <details>
-<summary>📦 <strong>ChromaDB 安裝失敗</strong></summary>
+<summary>📦 <strong>ChromaDB Installation Failure</strong></summary>
 
-**問題**: `pip install chromadb` 失敗  
-**解決方案**:
+**Issue**: `pip install chromadb` fails  
+**Solution**:
 ```bash
-# Windows: 確保已安裝 Visual C++ Build Tools
-# 然後嘗試:
+# Windows: Ensure Visual C++ Build Tools are installed
+# Then try:
 pip install --no-cache-dir chromadb==0.5.3
 
-# 或使用 conda:
+# Or use conda:
 conda install -c conda-forge chromadb
 ```
 </details>
 
 <details>
-<summary>🔑 <strong>API 金鑰問題</strong></summary>
+<summary>🔑 <strong>API Key Issues</strong></summary>
 
-**問題**: API 金鑰無效或配額不足  
-**解決方案**:
-1. 檢查 `.env` 檔案中的 `ANTHROPIC_API_KEY`
-2. 確認金鑰格式：`sk-ant-api03-...`
-3. 登入 [Anthropic Console](https://console.anthropic.com/) 檢查配額
+**Issue**: API key invalid or quota insufficient  
+**Solution**:
+1. Check `ANTHROPIC_API_KEY` in `.env` file
+2. Ensure key format: `sk-ant-api03-...`
+3. Login to [Anthropic Console](https://console.anthropic.com/) to check quota
 </details>
 
 <details>
-<summary>🚀 <strong>記憶體不足</strong></summary>
+<summary>🚀 <strong>Memory Issues</strong></summary>
 
-**問題**: 系統記憶體使用量過高  
-**解決方案**:
+**Issue**: System memory usage too high  
+**Solution**:
 ```env
-# 在 .env 中調整參數
-CHUNK_SIZE=512          # 減少文字塊大小
-CLAUDE_MAX_TOKENS=2000  # 減少回應長度
+# Adjust parameters in .env
+CHUNK_SIZE=512          # Reduce text chunk size
+CLAUDE_MAX_TOKENS=2000  # Reduce response length
 ```
 </details>
 
-### 📞 **技術支援**
+### 📞 **Technical Support**
 
-如遇到無法解決的問題，請：
+If you encounter unresolvable issues, please:
 
-1. 🐛 **提交 Issue**: 在 GitHub 上創建詳細的問題報告
-2. 📧 **聯繫開發者**: thc1006@example.com
-3. 💬 **社群討論**: 加入 Nephio 社群 Slack 頻道
+1. 🐛 **Submit Issue**: Create detailed problem report on GitHub
+2. 📧 **Contact Developer**: thc1006@example.com
+3. 💬 **Community Discussion**: Join Nephio community Slack channels
 
-## 🤝 貢獻指南
+## 🤝 Contributing Guidelines
 
-歡迎參與專案貢獻！請遵循以下步驟：
+Welcome to contribute to the project! Please follow these steps:
 
 ```bash
-# 1️⃣ Fork 專案並複製
-git clone https://github.com/你的用戶名/oran-nephio-rag.git
+# 1️⃣ Fork the project and clone
+git clone https://github.com/your-username/oran-nephio-rag.git
 
-# 2️⃣ 建立功能分支
+# 2️⃣ Create feature branch
 git checkout -b feature/amazing-feature
 
-# 3️⃣ 進行變更並提交
+# 3️⃣ Make changes and commit
 git commit -m "Add amazing feature"
 
-# 4️⃣ 推送到分支
+# 4️⃣ Push to branch
 git push origin feature/amazing-feature
 
-# 5️⃣ 提交 Pull Request
+# 5️⃣ Submit Pull Request
 ```
 
-### 📝 **貢獻類型**
+### 📝 **Contribution Types**
 
-- 🐛 Bug 修復
-- ✨ 新功能開發  
-- 📚 文檔改進
-- 🧪 測試增強
-- 🎨 程式碼品質優化
+- 🐛 Bug fixes
+- ✨ New feature development  
+- 📚 Documentation improvements
+- 🧪 Test enhancements
+- 🎨 Code quality optimizations
 
-## 📜 授權條款
+## 📜 License
 
-本專案採用 [Apache 2.0 授權條款](LICENSE)。您可以自由使用、修改和發布，但需保留原始授權聲明。
+This project is licensed under the [Apache 2.0 License](LICENSE). You are free to use, modify, and distribute, but must retain the original license notice.
 
-## 🌟 致謝
+## 🌟 Acknowledgments
 
-特別感謝以下開源專案和社群：
+Special thanks to the following open source projects and communities:
 
-- 🦜 **LangChain**: 強大的 LLM 應用開發框架
-- 🤖 **Anthropic**: 提供 Claude AI 模型
-- 🔍 **ChromaDB**: 高效的向量資料庫
-- 🏗️ **Nephio Project**: 雲原生網路功能編排
-- 🌐 **O-RAN Alliance**: 開放 RAN 架構標準
+- 🦜 **LangChain**: Powerful LLM application development framework
+- 🤖 **Anthropic**: Providing Claude AI models
+- 🔍 **ChromaDB**: Efficient vector database
+- 🏗️ **Nephio Project**: Cloud-native network function orchestration
+- 🌐 **O-RAN Alliance**: Open RAN architecture standards
 
 ---
 
 <div align="center">
 
-**🚀 準備好探索 O-RAN × Nephio 的無限可能了嗎？**
+**🚀 Ready to explore the infinite possibilities of O-RAN × Nephio?**
 
-[開始使用](#-快速開始) | [查看範例](examples/) | [閱讀文檔](docs/) | [提交問題](../../issues)
+[Get Started](#-quick-start) | [View Examples](examples/) | [Read Docs](docs/) | [Submit Issues](../../issues)
 
 </div>
