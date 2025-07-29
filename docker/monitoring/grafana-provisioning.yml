@@ -1,0 +1,215 @@
+# O-RAN × Nephio RAG 系統 Grafana 自動配置
+# 資料源和儀表板的自動配置
+
+# 資料源配置
+apiVersion: 1
+
+datasources:
+  # Prometheus 開發環境
+  - name: Prometheus-Dev
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: 15s
+      queryTimeout: 60s
+      httpMethod: POST
+    secureJsonData: {}
+
+  # Prometheus 生產環境 (高可用)
+  - name: Prometheus-Prod
+    type: prometheus
+    access: proxy
+    url: http://prometheus-1:9090,http://prometheus-2:9090
+    isDefault: false
+    editable: false
+    jsonData:
+      timeInterval: 30s
+      queryTimeout: 120s
+      httpMethod: POST
+      # 高可用配置
+      manageAlerts: true
+      alertManagerUid: alertmanager
+    secureJsonData: {}
+
+  # Loki 日誌資料源
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    jsonData:
+      maxLines: 1000
+      timeout: 60s
+    secureJsonData: {}
+
+  # Elasticsearch 日誌資料源 (生產環境)
+  - name: Elasticsearch-Logs
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "oran-rag-logs-*"
+    isDefault: false
+    editable: false
+    jsonData:
+      esVersion: "8.0.0"
+      timeField: "@timestamp"
+      logMessageField: "message"
+      logLevelField: "level"
+      interval: Daily
+      includeFrozen: false
+      maxConcurrentShardRequests: 5
+    secureJsonData:
+      basicAuthPassword: "${ELASTICSEARCH_PASSWORD}"
+
+---
+# 儀表板自動配置
+apiVersion: 1
+
+providers:
+  # 主要儀表板
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # O-RAN RAG 專用儀表板
+  - name: 'oran-rag-dashboards'
+    orgId: 1
+    folder: 'O-RAN RAG'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/oran-rag
+
+  # 系統監控儀表板
+  - name: 'system-monitoring'
+    orgId: 1
+    folder: 'System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 60
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/system
+
+  # 安全和告警儀表板
+  - name: 'security-alerts'
+    orgId: 1
+    folder: 'Security'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/security
+
+---
+# 通知通道配置
+apiVersion: 1
+
+notifiers:
+  # Slack 通知
+  - name: slack-alerts
+    type: slack
+    uid: slack001
+    org_id: 1
+    is_default: true
+    send_reminder: true
+    disable_resolve_message: false
+    frequency: "10s"
+    settings:
+      url: "${SLACK_WEBHOOK_URL}"
+      channel: "#oran-rag-alerts"
+      username: "Grafana"
+      title: "O-RAN RAG Alert"
+      text: |
+        {{ range .Alerts }}
+        Alert: {{ .Annotations.summary }}
+        Description: {{ .Annotations.description }}
+        Severity: {{ .Labels.severity }}
+        {{ end }}
+
+  # Email 通知
+  - name: email-alerts
+    type: email
+    uid: email001
+    org_id: 1
+    is_default: false
+    send_reminder: true
+    disable_resolve_message: false
+    frequency: "5m"
+    settings:
+      addresses: "${ALERT_EMAIL_TO}"
+      single_email: false
+      subject: "[O-RAN RAG] {{ .CommonAnnotations.summary }}"
+      body: |
+        <h2>O-RAN × Nephio RAG Alert</h2>
+        {{ range .Alerts }}
+        <h3>{{ .Annotations.summary }}</h3>
+        <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+        <p><strong>Severity:</strong> {{ .Labels.severity }}</p>
+        <p><strong>Service:</strong> {{ .Labels.job }}</p>
+        <p><strong>Instance:</strong> {{ .Labels.instance }}</p>
+        <p><strong>Time:</strong> {{ .StartsAt }}</p>
+        <hr>
+        {{ end }}
+
+  # Webhook 通知 (自定義集成)
+  - name: webhook-alerts
+    type: webhook
+    uid: webhook001
+    org_id: 1
+    is_default: false
+    send_reminder: false
+    disable_resolve_message: false
+    frequency: "30s"
+    settings:
+      url: "${WEBHOOK_ALERT_URL}"
+      httpMethod: "POST"
+      username: "${WEBHOOK_USERNAME}"
+      password: "${WEBHOOK_PASSWORD}"
+      title: "O-RAN RAG Alert"
+
+---
+# 團隊和用戶配置
+apiVersion: 1
+
+teams:
+  # 開發團隊
+  - name: "Development Team"
+    email: "dev-team@company.com"
+    orgId: 1
+    members:
+      - email: "developer1@company.com"
+      - email: "developer2@company.com"
+
+  # 運維團隊
+  - name: "Operations Team"
+    email: "ops-team@company.com"
+    orgId: 1
+    members:
+      - email: "ops1@company.com"
+      - email: "ops2@company.com"
+
+  # 安全團隊
+  - name: "Security Team"
+    email: "security-team@company.com"
+    orgId: 1
+    members:
+      - email: "security1@company.com"
+      - email: "security2@company.com"
+
+deleteTeams:
+  - name: "Old Team"
+    orgId: 1

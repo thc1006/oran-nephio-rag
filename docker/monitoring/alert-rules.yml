@@ -1,0 +1,337 @@
+# O-RAN × Nephio RAG 系統告警規則
+# Prometheus Alert Rules Configuration
+
+groups:
+  # 應用程式健康狀態告警
+  - name: oran-rag-application
+    interval: 30s
+    rules:
+      # 服務不可用告警
+      - alert: ServiceDown
+        expr: up{job="oran-rag-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: oran-rag
+          category: availability
+        annotations:
+          summary: "O-RAN RAG service is down"
+          description: "O-RAN RAG application has been down for more than 1 minute on instance {{ $labels.instance }}"
+          runbook_url: "https://docs.company.com/runbooks/oran-rag-service-down"
+
+      # 高響應時間告警
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(rag_query_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: oran-rag
+          category: performance
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s, exceeding 5s threshold"
+          runbook_url: "https://docs.company.com/runbooks/high-response-time"
+
+      # 錯誤率過高告警
+      - alert: HighErrorRate
+        expr: rate(rag_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: oran-rag
+          category: reliability
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors/second, exceeding 0.1/s threshold"
+          runbook_url: "https://docs.company.com/runbooks/high-error-rate"
+
+      # 查詢量異常告警
+      - alert: QueryVolumeAnomaly
+        expr: |
+          (
+            rate(rag_queries_total[5m]) > 
+            avg_over_time(rate(rag_queries_total[5m])[1h:5m]) * 3
+          ) or (
+            rate(rag_queries_total[5m]) < 
+            avg_over_time(rate(rag_queries_total[5m])[1h:5m]) * 0.3
+          )
+        for: 5m
+        labels:
+          severity: warning
+          service: oran-rag
+          category: anomaly
+        annotations:
+          summary: "Query volume anomaly detected"
+          description: "Current query rate {{ $value }} is significantly different from normal patterns"
+          runbook_url: "https://docs.company.com/runbooks/query-anomaly"
+
+  # 系統資源告警
+  - name: oran-rag-system
+    interval: 60s
+    rules:
+      # CPU 使用率過高
+      - alert: HighCpuUsage
+        expr: 100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+          category: resource
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}%, exceeding 80% threshold"
+          runbook_url: "https://docs.company.com/runbooks/high-cpu"
+
+      # 記憶體使用率過高
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+          category: resource
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}%, exceeding 85% threshold"
+          runbook_url: "https://docs.company.com/runbooks/high-memory"
+
+      # 磁碟空間不足
+      - alert: LowDiskSpace
+        expr: 100 - ((node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100) > 90
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+          category: resource
+        annotations:
+          summary: "Low disk space detected"
+          description: "Disk usage is {{ $value }}%, exceeding 90% threshold on {{ $labels.mountpoint }}"
+          runbook_url: "https://docs.company.com/runbooks/low-disk-space"
+
+      # 資料目錄磁碟空間不足
+      - alert: DataDiskSpaceLow
+        expr: 100 - ((node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}) * 100) > 85
+        for: 3m
+        labels:
+          severity: warning
+          service: system
+          category: resource
+        annotations:
+          summary: "Data disk space running low"
+          description: "Data disk usage is {{ $value }}%, exceeding 85% threshold"
+          runbook_url: "https://docs.company.com/runbooks/data-disk-low"
+
+  # Redis 告警
+  - name: oran-rag-redis
+    interval: 30s
+    rules:
+      # Redis 服務不可用
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+          category: availability
+        annotations:
+          summary: "Redis service is down"
+          description: "Redis instance {{ $labels.instance }} has been down for more than 1 minute"
+          runbook_url: "https://docs.company.com/runbooks/redis-down"
+
+      # Redis 記憶體使用率過高
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          category: resource
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value }}% on {{ $labels.instance }}"
+          runbook_url: "https://docs.company.com/runbooks/redis-high-memory"
+
+      # Redis 連接數過多
+      - alert: RedisHighConnectionCount
+        expr: redis_connected_clients > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          category: resource
+        annotations:
+          summary: "Redis high connection count"
+          description: "Redis has {{ $value }} connected clients on {{ $labels.instance }}"
+          runbook_url: "https://docs.company.com/runbooks/redis-high-connections"
+
+      # Redis 主從同步延遲
+      - alert: RedisMasterSlaveReplicationLag
+        expr: redis_master_repl_offset - redis_slave_repl_offset > 1000000
+        for: 2m
+        labels:
+          severity: warning
+          service: redis
+          category: replication
+        annotations:
+          summary: "Redis master-slave replication lag"
+          description: "Replication lag is {{ $value }} bytes between master and slave"
+          runbook_url: "https://docs.company.com/runbooks/redis-replication-lag"
+
+  # 向量資料庫告警
+  - name: oran-rag-vectordb
+    interval: 60s
+    rules:
+      # 向量搜尋響應時間過長
+      - alert: SlowVectorSearch
+        expr: histogram_quantile(0.95, rate(chroma_db_query_duration_seconds_bucket[5m])) > 2
+        for: 3m
+        labels:
+          severity: warning
+          service: vectordb
+          category: performance
+        annotations:
+          summary: "Slow vector database queries"
+          description: "95th percentile vector search time is {{ $value }}s, exceeding 2s threshold"
+          runbook_url: "https://docs.company.com/runbooks/slow-vector-search"
+
+      # 向量資料庫連接失敗
+      - alert: VectorDBConnectionFailure
+        expr: increase(chroma_db_connection_errors_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: vectordb
+          category: connectivity
+        annotations:
+          summary: "Vector database connection failures"
+          description: "{{ $value }} connection failures to vector database in the last 5 minutes"
+          runbook_url: "https://docs.company.com/runbooks/vectordb-connection-failure"
+
+  # 安全告警
+  - name: oran-rag-security
+    interval: 30s
+    rules:
+      # 異常流量檢測
+      - alert: AbnormalTrafficPattern
+        expr: rate(nginx_http_requests_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          service: nginx
+          category: security
+        annotations:
+          summary: "Abnormal traffic pattern detected"
+          description: "Request rate is {{ $value }} req/s, potentially indicating DDoS or abuse"
+          runbook_url: "https://docs.company.com/runbooks/abnormal-traffic"
+
+      # SSL 憑證即將過期
+      - alert: SSLCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 1m
+        labels:
+          severity: warning
+          service: ssl
+          category: security
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in less than 7 days"
+          runbook_url: "https://docs.company.com/runbooks/ssl-cert-expiry"
+
+      # API 金鑰使用異常
+      - alert: SuspiciousAPIKeyUsage
+        expr: rate(rag_api_requests_by_key[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+          category: security
+        annotations:
+          summary: "Suspicious API key usage pattern"
+          description: "API key {{ $labels.api_key }} is making {{ $value }} requests/s"
+          runbook_url: "https://docs.company.com/runbooks/suspicious-api-usage"
+
+  # 容器和服務編排告警
+  - name: oran-rag-containers
+    interval: 30s
+    rules:
+      # 容器重啟過於頻繁
+      - alert: ContainerRestartingTooOften
+        expr: increase(kube_pod_container_status_restarts_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: kubernetes
+          category: stability
+        annotations:
+          summary: "Container restarting too often"
+          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour"
+          runbook_url: "https://docs.company.com/runbooks/container-restarts"
+
+      # 容器記憶體使用率過高
+      - alert: ContainerHighMemoryUsage
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: containers
+          category: resource
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is {{ $value }}%"
+          runbook_url: "https://docs.company.com/runbooks/container-high-memory"
+
+      # 容器 CPU 節流
+      - alert: ContainerCPUThrottling
+        expr: rate(container_cpu_cfs_throttled_seconds_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: containers
+          category: resource
+        annotations:
+          summary: "Container CPU throttling detected"
+          description: "Container {{ $labels.name }} is being CPU throttled at {{ $value }}s/s"
+          runbook_url: "https://docs.company.com/runbooks/cpu-throttling"
+
+  # 業務邏輯告警
+  - name: oran-rag-business
+    interval: 60s
+    rules:
+      # 文檔處理失敗率過高
+      - alert: HighDocumentProcessingFailureRate
+        expr: rate(document_processing_failures_total[10m]) / rate(document_processing_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: document-processing
+          category: business
+        annotations:
+          summary: "High document processing failure rate"
+          description: "Document processing failure rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/document-processing-failures"
+
+      # 嵌入生成失敗
+      - alert: EmbeddingGenerationFailures
+        expr: increase(embedding_generation_failures_total[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+          service: embeddings
+          category: business
+        annotations:
+          summary: "Embedding generation failures"
+          description: "{{ $value }} embedding generation failures in the last 5 minutes"
+          runbook_url: "https://docs.company.com/runbooks/embedding-failures"
+
+      # 資料同步延遲
+      - alert: DataSyncLag
+        expr: time() - last_successful_sync_timestamp > 3600 * 12
+        for: 1m
+        labels:
+          severity: warning
+          service: data-sync
+          category: business
+        annotations:
+          summary: "Data synchronization lag detected"
+          description: "Data has not been synchronized for {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.company.com/runbooks/data-sync-lag"

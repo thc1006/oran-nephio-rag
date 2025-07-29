@@ -1,0 +1,413 @@
+version: '3.8'
+
+# O-RAN × Nephio RAG 生產環境 Docker Compose
+# 高可用性、高性能的生產環境配置
+
+services:
+  # 主應用服務 (多實例)
+  oran-rag-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+      args:
+        PYTHON_VERSION: 3.11
+    image: oran-rag:production-${VERSION:-latest}
+    restart: always
+    deploy:
+      replicas: ${APP_REPLICAS:-3}
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - WORKERS=${WORKERS:-4}
+      - WORKER_TIMEOUT=${WORKER_TIMEOUT:-120}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-3-sonnet-20240229}
+      - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-4000}
+      - CLAUDE_TEMPERATURE=${CLAUDE_TEMPERATURE:-0.1}
+      - VECTOR_DB_PATH=/app/oran_nephio_vectordb
+      - EMBEDDINGS_CACHE_PATH=/app/embeddings_cache
+      - LOG_FILE=/app/logs/oran_nephio_rag.log
+      - PROMETHEUS_METRICS_PORT=9100
+    volumes:
+      - oran-rag-vectordb:/app/oran_nephio_vectordb:ro
+      - oran-rag-embeddings:/app/embeddings_cache:ro
+      - oran-rag-logs:/app/logs
+    networks:
+      - oran-rag-backend
+      - oran-rag-frontend
+    depends_on:
+      - redis-master
+      - redis-sentinel
+    healthcheck:
+      test: ["CMD", "/entrypoint.sh", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /var/tmp:noexec,nosuid,size=50m
+
+  # Redis 主節點
+  redis-master:
+    image: redis:7-alpine
+    container_name: oran-rag-redis-master
+    hostname: redis-master
+    restart: always
+    environment:
+      - REDIS_REPLICATION_MODE=master
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-master-data:/data
+      - ./docker/config/redis-master.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    networks:
+      - oran-rag-backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis 從節點
+  redis-slave:
+    image: redis:7-alpine
+    restart: always
+    deploy:
+      replicas: 2
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - ./docker/config/redis-slave.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf --slaveof redis-master 6379 --requirepass ${REDIS_PASSWORD} --masterauth ${REDIS_PASSWORD}
+    depends_on:
+      - redis-master
+    networks:
+      - oran-rag-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # Redis Sentinel (高可用)
+  redis-sentinel:
+    image: redis:7-alpine
+    restart: always
+    deploy:
+      replicas: 3
+    environment:
+      - REDIS_SENTINEL_PASSWORD=${REDIS_SENTINEL_PASSWORD}
+    volumes:
+      - ./docker/config/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    depends_on:
+      - redis-master
+    networks:
+      - oran-rag-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # Nginx 負載均衡器
+  nginx:
+    image: nginx:alpine
+    container_name: oran-rag-nginx-prod
+    hostname: nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/prod.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - oran-rag-app
+    networks:
+      - oran-rag-frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    security_opt:
+      - no-new-privileges:true
+
+  # Prometheus 監控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: oran-rag-prometheus-prod
+    hostname: prometheus
+    restart: always
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./docker/monitoring/prometheus-prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--alertmanager.notification-queue-capacity=10000'
+    networks:
+      - oran-rag-backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # Alertmanager 告警管理
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: oran-rag-alertmanager-prod
+    hostname: alertmanager
+    restart: always
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./docker/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://alertmanager:9093'
+      - '--cluster.listen-address=0.0.0.0:9094'
+    networks:
+      - oran-rag-backend
+    depends_on:
+      - prometheus
+
+  # Node Exporter 系統監控
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: oran-rag-node-exporter-prod
+    hostname: node-exporter
+    restart: always
+    ports:
+      - "127.0.0.1:9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - oran-rag-backend
+
+  # Grafana 視覺化 (只在監控節點運行)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: oran-rag-grafana-prod
+    hostname: grafana
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_INSTALL_PLUGINS=${GRAFANA_PLUGINS:-}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - oran-rag-backend
+    user: "472"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+
+  # 備份服務
+  backup:
+    build:
+      context: .
+      dockerfile: docker/backup/Dockerfile
+    container_name: oran-rag-backup-prod
+    hostname: backup
+    restart: unless-stopped
+    environment:
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 2 * * *}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET=${S3_BUCKET:-oran-rag-backup}
+      - ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
+    volumes:
+      - oran-rag-vectordb:/backup/vectordb:ro
+      - oran-rag-logs:/backup/logs:ro
+      - backup-data:/backup/temp
+    networks:
+      - oran-rag-backend
+    depends_on:
+      - oran-rag-app
+
+  # 日誌收集 (僅 Logstash 用於生產)
+  logstash:
+    image: logstash:8.8.0
+    container_name: oran-rag-logstash-prod
+    hostname: logstash
+    restart: always
+    environment:
+      - LS_JAVA_OPTS=-Xmx1g -Xms1g
+      - ELASTICSEARCH_HOSTS=${ELASTICSEARCH_HOSTS}
+    volumes:
+      - ./docker/monitoring/logstash-prod.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - oran-rag-logs:/app/logs:ro
+      - nginx-logs:/nginx/logs:ro
+    networks:
+      - oran-rag-backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# 網路配置
+networks:
+  oran-rag-frontend:
+    driver: bridge
+    name: oran-rag-frontend-prod
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  oran-rag-backend:
+    driver: bridge
+    name: oran-rag-backend-prod
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# 數據卷配置
+volumes:
+  oran-rag-vectordb:
+    name: oran-rag-vectordb-prod
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/vectordb
+  oran-rag-embeddings:
+    name: oran-rag-embeddings-prod
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/embeddings
+  oran-rag-logs:
+    name: oran-rag-logs-prod
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}/logs
+  redis-master-data:
+    name: oran-rag-redis-master-data-prod
+    driver: local
+  prometheus-data:
+    name: oran-rag-prometheus-data-prod
+    driver: local
+  alertmanager-data:
+    name: oran-rag-alertmanager-data-prod
+    driver: local
+  grafana-data:
+    name: oran-rag-grafana-data-prod
+    driver: local
+  nginx-logs:
+    name: oran-rag-nginx-logs-prod
+    driver: local
+  nginx-cache:
+    name: oran-rag-nginx-cache-prod
+    driver: local
+  backup-data:
+    name: oran-rag-backup-data-prod
+    driver: local

@@ -1,0 +1,239 @@
+# Prometheus Recording Rules for O-RAN × Nephio RAG System
+# Pre-computed metrics for efficient querying and dashboards
+
+groups:
+  - name: rag_system_aggregations
+    interval: 30s
+    rules:
+      # Overall system health score
+      - record: rag:system_health_score
+        expr: |
+          (
+            (1 - (rag_system_cpu_usage_percent / 100)) * 0.3 +
+            (1 - (rag_system_memory_usage_bytes / (16 * 1024^3))) * 0.3 +
+            (rag_cache_hit_rate / 100) * 0.2 +
+            (1 - (rag_error_rate_percent / 100)) * 0.2
+          ) * 100
+
+      # Query success rate
+      - record: rag:query_success_rate_5m
+        expr: |
+          (
+            rate(rag_queries_total{status="success"}[5m]) /
+            rate(rag_queries_total[5m])
+          ) * 100
+
+      - record: rag:query_success_rate_1h
+        expr: |
+          (
+            rate(rag_queries_total{status="success"}[1h]) /
+            rate(rag_queries_total[1h])
+          ) * 100
+
+      # Average response times by percentile
+      - record: rag:query_latency_p50_5m
+        expr: histogram_quantile(0.50, rate(rag_query_duration_seconds_bucket[5m]))
+
+      - record: rag:query_latency_p95_5m
+        expr: histogram_quantile(0.95, rate(rag_query_duration_seconds_bucket[5m]))
+
+      - record: rag:query_latency_p99_5m
+        expr: histogram_quantile(0.99, rate(rag_query_duration_seconds_bucket[5m]))
+
+  - name: vector_database_metrics
+    interval: 30s
+    rules:
+      # Vector database performance metrics
+      - record: rag:vectordb_search_latency_p95_5m
+        expr: histogram_quantile(0.95, rate(rag_vectordb_search_duration_seconds_bucket[5m]))
+
+      - record: rag:vectordb_operation_rate_5m
+        expr: rate(rag_vectordb_operations_total[5m])
+
+      - record: rag:vectordb_success_rate_5m
+        expr: |
+          (
+            rate(rag_vectordb_operations_total{status="success"}[5m]) /
+            rate(rag_vectordb_operations_total[5m])
+          ) * 100
+
+  - name: ai_model_metrics
+    interval: 30s
+    rules:
+      # AI model performance and usage
+      - record: rag:ai_model_request_rate_5m
+        expr: rate(rag_ai_model_requests_total[5m])
+
+      - record: rag:ai_model_success_rate_5m
+        expr: |
+          (
+            rate(rag_ai_model_requests_total{status="success"}[5m]) /
+            rate(rag_ai_model_requests_total[5m])
+          ) * 100
+
+      - record: rag:ai_model_latency_p95_5m
+        expr: histogram_quantile(0.95, rate(rag_ai_model_request_duration_seconds_bucket[5m]))
+
+      - record: rag:ai_model_token_rate_5m
+        expr: rate(rag_ai_model_tokens_total[5m])
+
+      # Token usage by type
+      - record: rag:ai_model_input_tokens_5m
+        expr: rate(rag_ai_model_tokens_total{type="input"}[5m])
+
+      - record: rag:ai_model_output_tokens_5m
+        expr: rate(rag_ai_model_tokens_total{type="output"}[5m])
+
+  - name: document_loading_metrics
+    interval: 60s
+    rules:
+      # Document loading statistics
+      - record: rag:document_loading_rate_1h
+        expr: rate(rag_documents_loaded_total[1h])
+
+      - record: rag:document_loading_success_rate_1h
+        expr: |
+          (
+            rate(rag_documents_loaded_total{status="success"}[1h]) /
+            rate(rag_documents_loaded_total[1h])
+          ) * 100
+
+      - record: rag:document_loading_latency_p95_1h
+        expr: histogram_quantile(0.95, rate(rag_document_loading_duration_seconds_bucket[1h]))
+
+      # Documents by source type
+      - record: rag:documents_by_source_type
+        expr: rag_documents_loaded_total by (source_type)
+
+  - name: system_resource_utilization
+    interval: 30s
+    rules:
+      # Resource utilization trends
+      - record: rag:cpu_utilization_5m_avg
+        expr: avg_over_time(rag_system_cpu_usage_percent[5m])
+
+      - record: rag:memory_utilization_5m_avg
+        expr: avg_over_time(rag_system_memory_usage_bytes[5m])
+
+      - record: rag:disk_utilization_5m_avg
+        expr: avg_over_time(rag_system_disk_usage_bytes[5m])
+
+      # Resource utilization as percentage
+      - record: rag:memory_utilization_percent
+        expr: (rag_system_memory_usage_bytes / (16 * 1024^3)) * 100
+
+      - record: rag:disk_utilization_percent
+        expr: (rag_system_disk_usage_bytes / (100 * 1024^3)) * 100
+
+  - name: business_kpis
+    interval: 300s  # 5-minute intervals for business metrics
+    rules:
+      # Query volume trends
+      - record: rag:queries_per_hour
+        expr: rate(rag_queries_total[1h]) * 3600
+
+      - record: rag:queries_per_day
+        expr: rate(rag_queries_total[24h]) * 86400
+
+      # Response size statistics
+      - record: rag:response_size_p95_1h
+        expr: histogram_quantile(0.95, rate(rag_query_response_size_bytes_bucket[1h]))
+
+      - record: rag:avg_response_size_1h
+        expr: |
+          rate(rag_query_response_size_bytes_sum[1h]) /
+          rate(rag_query_response_size_bytes_count[1h])
+
+      # Cache efficiency
+      - record: rag:cache_efficiency_1h
+        expr: avg_over_time(rag_cache_hit_rate[1h])
+
+      # System availability (uptime percentage)
+      - record: rag:system_availability_24h
+        expr: avg_over_time(up{job="oran-rag-app"}[24h]) * 100
+
+  - name: error_analysis
+    interval: 60s
+    rules:
+      # Error rates by component
+      - record: rag:query_error_rate_5m
+        expr: |
+          (
+            rate(rag_queries_total{status="error"}[5m]) /
+            rate(rag_queries_total[5m])
+          ) * 100
+
+      - record: rag:document_loading_error_rate_5m
+        expr: |
+          (
+            rate(rag_documents_loaded_total{status="error"}[5m]) /
+            rate(rag_documents_loaded_total[5m])
+          ) * 100
+
+      - record: rag:vectordb_error_rate_5m
+        expr: |
+          (
+            rate(rag_vectordb_operations_total{status="error"}[5m]) /
+            rate(rag_vectordb_operations_total[5m])
+          ) * 100
+
+      - record: rag:ai_model_error_rate_5m
+        expr: |
+          (
+            rate(rag_ai_model_requests_total{status="error"}[5m]) /
+            rate(rag_ai_model_requests_total[5m])
+          ) * 100
+
+  - name: capacity_planning
+    interval: 300s
+    rules:
+      # Capacity and scaling metrics
+      - record: rag:concurrent_sessions_max_1h
+        expr: max_over_time(rag_active_sessions[1h])
+
+      - record: rag:concurrent_sessions_avg_1h
+        expr: avg_over_time(rag_active_sessions[1h])
+
+      # Resource growth rates
+      - record: rag:memory_growth_rate_24h
+        expr: |
+          (
+            rag_system_memory_usage_bytes -
+            rag_system_memory_usage_bytes offset 24h
+          ) / (24 * 3600)
+
+      - record: rag:disk_growth_rate_24h
+        expr: |
+          (
+            rag_system_disk_usage_bytes -
+            rag_system_disk_usage_bytes offset 24h
+          ) / (24 * 3600)
+
+      # Query load forecasting (simple linear trend)
+      - record: rag:query_trend_7d
+        expr: |
+          deriv(
+            avg_over_time(rag:queries_per_hour[7d])
+          )
+
+  - name: quality_metrics
+    interval: 300s
+    rules:
+      # Service quality indicators
+      - record: rag:service_level_indicator_availability
+        expr: avg_over_time(up{job="oran-rag-app"}[5m])
+
+      - record: rag:service_level_indicator_latency
+        expr: rag:query_latency_p95_5m < bool 10
+
+      - record: rag:service_level_indicator_error_rate
+        expr: rag:query_error_rate_5m < bool 1
+
+      # Overall SLI score
+      - record: rag:service_level_indicator_score
+        expr: |
+          (
+            rag:service_level_indicator_availability * 0.4 +
+            rag:service_level_indicator_latency * 0.3 +
+            rag:service_level_indicator_error_rate * 0.3
+          )

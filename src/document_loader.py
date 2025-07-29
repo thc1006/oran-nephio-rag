@@ -6,7 +6,7 @@ import logging
 import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup, Comment
 from langchain.docstore.document import Document

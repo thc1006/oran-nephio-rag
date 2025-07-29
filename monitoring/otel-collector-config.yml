@@ -1,0 +1,210 @@
+# OpenTelemetry Collector Configuration for O-RAN × Nephio RAG System
+# Based on 2024 observability best practices
+
+receivers:
+  # OTLP receiver for metrics and traces
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus receiver to scrape metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['localhost:8888']
+
+  # Host metrics receiver
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      disk:
+        metrics:
+          system.disk.io:
+            enabled: true
+          system.disk.operations:
+            enabled: true
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+      network:
+        metrics:
+          system.network.io:
+            enabled: true
+      process:
+        metrics:
+          process.cpu.utilization:
+            enabled: true
+          process.memory.utilization:
+            enabled: true
+
+  # Docker stats receiver
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    collection_interval: 30s
+    timeout: 10s
+    api_version: 1.41
+
+processors:
+  # Batch processor for efficiency
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Resource processor to add metadata
+  resource:
+    attributes:
+      - key: service.name
+        value: "oran-nephio-rag"
+        action: upsert
+      - key: service.version
+        value: "1.0.0"
+        action: upsert
+      - key: deployment.environment
+        value: "production"
+        action: upsert
+
+  # Memory limiter processor
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+    check_interval: 1s
+
+  # Attributes processor for metrics enrichment
+  attributes:
+    actions:
+      - key: k8s.cluster.name
+        value: "oran-nephio-cluster"
+        action: upsert
+      - key: k8s.namespace.name
+        value: "rag-system"
+        action: upsert
+
+  # Filter processor to exclude noisy metrics
+  filter:
+    metrics:
+      exclude:
+        match_type: regexp
+        metric_names:
+          - ".*grpc_client.*"
+          - ".*http_client.*"
+          - ".*debug.*"
+
+  # Transform processor for metric normalization
+  transform:
+    metric_statements:
+      - context: metric
+        statements:
+          # Convert bytes to MB for readability
+          - set(name, "system_memory_usage_mb") where name == "system.memory.usage"
+          - set(unit, "MB") where name == "system_memory_usage_mb"
+
+exporters:
+  # Prometheus exporter
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "otel"
+    const_labels:
+      collector: "otel-collector"
+    send_timestamps: true
+    metric_expiration: 180m
+    enable_open_metrics: true
+
+  # OTLP exporter to Jaeger
+  otlp/jaeger:
+    endpoint: "jaeger:14250"
+    tls:
+      insecure: true
+
+  # OTLP exporter for metrics (if using external OTLP endpoint)
+  otlp/metrics:
+    endpoint: "https://api.honeycomb.io:443"
+    headers:
+      "x-honeycomb-team": "${HONEYCOMB_API_KEY}"
+      "x-honeycomb-dataset": "oran-rag-metrics"
+
+  # Logging exporter for debugging
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # File exporter for local debugging
+  file:
+    path: "/tmp/otel-metrics.json"
+    rotation:
+      max_megabytes: 10
+      max_days: 3
+      max_backups: 3
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Performance profiler
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # Zpages for debugging
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+  # Memory ballast for stable memory usage
+  memory_ballast:
+    size_mib: 64
+
+service:
+  extensions: [health_check, pprof, zpages, memory_ballast]
+  
+  pipelines:
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp, prometheus, hostmetrics, docker_stats]
+      processors: [memory_limiter, resource, batch, attributes, filter, transform]
+      exporters: [prometheus, logging]
+
+    # Traces pipeline  
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch, attributes]
+      exporters: [otlp/jaeger, logging]
+
+    # Logs pipeline (if needed)
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [logging]
+
+  # Telemetry configuration
+  telemetry:
+    logs:
+      level: "info"
+      development: false
+      sampling:
+        initial: 5
+        thereafter: 200
+      encoding: "json"
+    metrics:
+      level: "detailed"
+      address: 0.0.0.0:8888
+      
+  # Resource limits
+  extensions:
+    memory_ballast:
+      size_mib: 64

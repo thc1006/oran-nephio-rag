@@ -1,0 +1,121 @@
+# O-RAN × Nephio RAG 系統生產環境專用 Dockerfile
+# 優化的生產環境構建，最小化映像大小和安全風險
+
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim as builder
+
+# 設定建置階段環境變數
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONUNBUFFERED=1
+
+# 安裝建置依賴
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    make \
+    pkg-config \
+    libssl-dev \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 設定工作目錄
+WORKDIR /build
+
+# 複製requirements
+COPY requirements.txt .
+
+# 建置Python wheel包
+RUN pip install --upgrade pip setuptools wheel && \
+    pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt
+
+# =============================================================================
+# 生產環境最終階段
+# =============================================================================
+FROM python:${PYTHON_VERSION}-slim as production
+
+# 設定維護者資訊
+LABEL maintainer="thc1006@example.com" \
+      description="O-RAN × Nephio RAG System - Production Ready" \
+      version="1.0.0" \
+      stage="production"
+
+# 生產環境變數
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    APP_HOME=/app \
+    APP_USER=raguser \
+    APP_GROUP=raguser \
+    FLASK_ENV=production \
+    LOG_LEVEL=INFO \
+    WORKERS=4
+
+# 創建非root用戶
+RUN groupadd -r ${APP_GROUP} && \
+    useradd -r -g ${APP_GROUP} -d ${APP_HOME} -s /sbin/nologin ${APP_USER}
+
+# 安裝運行時依賴
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 設定工作目錄
+WORKDIR ${APP_HOME}
+
+# 從建置階段複製wheel包
+COPY --from=builder /wheels /wheels
+COPY requirements.txt .
+
+# 安裝Python依賴
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --no-index --find-links /wheels -r requirements.txt && \
+    rm -rf /wheels
+
+# 複製應用程式碼
+COPY --chown=${APP_USER}:${APP_GROUP} . .
+
+# 創建必要目錄並設定權限
+RUN mkdir -p \
+    logs \
+    oran_nephio_vectordb \
+    embeddings_cache \
+    data \
+    /tmp/oran-rag \
+    && chown -R ${APP_USER}:${APP_GROUP} ${APP_HOME} /tmp/oran-rag \
+    && chmod 755 ${APP_HOME} \
+    && chmod -R 750 logs oran_nephio_vectordb embeddings_cache data
+
+# 複製生產環境配置
+COPY --chown=${APP_USER}:${APP_GROUP} docker/config/production.env .env
+COPY --chown=${APP_USER}:${APP_GROUP} docker/scripts/entrypoint-prod.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# 安全優化
+RUN find ${APP_HOME} -name "*.pyc" -delete && \
+    find ${APP_HOME} -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true && \
+    find ${APP_HOME} -name "test*" -type f -delete 2>/dev/null || true && \
+    find ${APP_HOME} -name "*test*" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# 移除敏感文件
+RUN rm -f .env.example docker/config/*.env 2>/dev/null || true
+
+# 設定用戶
+USER ${APP_USER}
+
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 暴露端口
+EXPOSE 8000
+
+# 設定數據卷
+VOLUME ["${APP_HOME}/logs", "${APP_HOME}/oran_nephio_vectordb", "${APP_HOME}/embeddings_cache"]
+
+# 啟動命令
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "--worker-class", "sync", "main:app"]

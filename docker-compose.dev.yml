@@ -1,0 +1,301 @@
+version: '3.8'
+
+# O-RAN × Nephio RAG 開發環境 Docker Compose
+# 包含完整的開發工具鏈和服務依賴
+
+services:
+  # 主應用服務
+  oran-rag-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        PYTHON_VERSION: 3.11
+    container_name: oran-rag-dev
+    hostname: oran-rag-dev
+    restart: unless-stopped
+    environment:
+      - APP_ENV=development
+      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app
+      - AUTO_RELOAD=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-3-sonnet-20240229}
+      - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-2048}
+      - CLAUDE_TEMPERATURE=${CLAUDE_TEMPERATURE:-0.1}
+      - VECTOR_DB_PATH=/app/oran_nephio_vectordb
+      - EMBEDDINGS_CACHE_PATH=/app/embeddings_cache
+      - LOG_FILE=/app/logs/oran_nephio_rag.log
+    ports:
+      - "8000:8000"     # 主應用埠
+      - "8888:8888"     # Jupyter Notebook
+      - "5678:5678"     # 調試埠
+    volumes:
+      - .:/app:cached
+      - oran-rag-vectordb:/app/oran_nephio_vectordb
+      - oran-rag-embeddings:/app/embeddings_cache
+      - oran-rag-logs:/app/logs
+      - /app/.venv        # 排除虛擬環境目錄
+    working_dir: /app
+    command: python main.py
+    depends_on:
+      - redis
+      - prometheus
+    networks:
+      - oran-rag-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "from src.config import Config; Config.validate()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis 快取服務
+  redis:
+    image: redis:7-alpine
+    container_name: oran-rag-redis-dev
+    hostname: redis
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./docker/config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - oran-rag-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: oran-rag-nginx-dev
+    hostname: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/dev.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - oran-rag-app
+    networks:
+      - oran-rag-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus 監控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: oran-rag-prometheus-dev
+    hostname: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - oran-rag-network
+
+  # Grafana 視覺化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: oran-rag-grafana-dev
+    hostname: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - oran-rag-network
+
+  # 日誌收集 (ELK Stack)
+  elasticsearch:
+    image: elasticsearch:8.8.0
+    container_name: oran-rag-elasticsearch-dev
+    hostname: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - oran-rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kibana:
+    image: kibana:8.8.0
+    container_name: oran-rag-kibana-dev
+    hostname: kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - oran-rag-network
+
+  logstash:
+    image: logstash:8.8.0
+    container_name: oran-rag-logstash-dev
+    hostname: logstash
+    restart: unless-stopped
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./docker/monitoring/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - oran-rag-logs:/app/logs:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - oran-rag-network
+
+  # 開發工具：PostgreSQL (可選，用於存儲結構化數據)
+  postgres:
+    image: postgres:15-alpine
+    container_name: oran-rag-postgres-dev
+    hostname: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-oran_rag}
+      - POSTGRES_USER=${POSTGRES_USER:-oran_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-oran_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/config/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - oran-rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oran_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3 相容的物件存儲，用於備份)
+  minio:
+    image: minio/minio:latest
+    container_name: oran-rag-minio-dev
+    hostname: minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - oran-rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # 開發工具：Jupyter Lab
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: oran-rag-jupyter-dev
+    hostname: jupyter
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/app
+      - JUPYTER_ENABLE_LAB=yes
+    ports:
+      - "8889:8888"
+    volumes:
+      - .:/app:cached
+      - jupyter-data:/home/raguser/.jupyter
+    working_dir: /app
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+    networks:
+      - oran-rag-network
+
+# 網路配置
+networks:
+  oran-rag-network:
+    driver: bridge
+    name: oran-rag-network
+
+# 數據卷配置
+volumes:
+  oran-rag-vectordb:
+    name: oran-rag-vectordb-dev
+    driver: local
+  oran-rag-embeddings:
+    name: oran-rag-embeddings-dev
+    driver: local
+  oran-rag-logs:
+    name: oran-rag-logs-dev
+    driver: local
+  redis-data:
+    name: oran-rag-redis-data-dev
+    driver: local
+  prometheus-data:
+    name: oran-rag-prometheus-data-dev
+    driver: local
+  grafana-data:
+    name: oran-rag-grafana-data-dev
+    driver: local
+  elasticsearch-data:
+    name: oran-rag-elasticsearch-data-dev
+    driver: local
+  postgres-data:
+    name: oran-rag-postgres-data-dev
+    driver: local
+  minio-data:
+    name: oran-rag-minio-data-dev
+    driver: local
+  nginx-logs:
+    name: oran-rag-nginx-logs-dev
+    driver: local
+  jupyter-data:
+    name: oran-rag-jupyter-data-dev
+    driver: local

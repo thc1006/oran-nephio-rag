@@ -1,0 +1,60 @@
+# Grafana Dashboard Provisioning Configuration
+# Auto-provisioning for O-RAN × Nephio RAG dashboards
+
+apiVersion: 1
+
+providers:
+  # Local dashboard provider
+  - name: 'default'
+    orgId: 1
+    folder: 'O-RAN × Nephio RAG'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+
+  # System monitoring dashboards
+  - name: 'system-monitoring'
+    orgId: 1
+    folder: 'System Monitoring'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/system
+
+  # Application monitoring dashboards
+  - name: 'application-monitoring'
+    orgId: 1
+    folder: 'Application Monitoring'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/application
+
+  # Business metrics dashboards
+  - name: 'business-metrics'
+    orgId: 1
+    folder: 'Business Metrics'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 60
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/business
+
+  # Security monitoring dashboards
+  - name: 'security-monitoring'
+    orgId: 1
+    folder: 'Security'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/security

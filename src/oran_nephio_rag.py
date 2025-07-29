@@ -5,11 +5,8 @@ O-RAN × Nephio RAG 系統核心模組
 import os
 import time
 import logging
-import tempfile
-import shutil
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Union
-from pathlib import Path
+from typing import List, Optional, Dict, Any
 
 # LangChain imports
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -21,10 +18,10 @@ from langchain.docstore.document import Document
 from langchain.prompts import PromptTemplate
 
 try:
-    from .config import Config, DocumentSource
+    from .config import Config
     from .document_loader import DocumentLoader
 except ImportError:
-    from config import Config, DocumentSource
+    from config import Config
     from document_loader import DocumentLoader
 
 # 設定模組日誌記錄器

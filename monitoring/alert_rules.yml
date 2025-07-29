@@ -1,0 +1,231 @@
+# Prometheus Alert Rules for O-RAN × Nephio RAG System
+# Based on SRE best practices and 2024 monitoring standards
+
+groups:
+  - name: rag_system_health
+    rules:
+      # High-level system health alerts
+      - alert: RAGSystemDown
+        expr: up{job="oran-rag-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: rag-system
+        annotations:
+          summary: "RAG System is down"
+          description: "The O-RAN × Nephio RAG system has been down for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: (rate(rag_queries_total{status="error"}[5m]) / rate(rag_queries_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: rag-system
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: CriticalErrorRate
+        expr: (rate(rag_queries_total{status="error"}[5m]) / rate(rag_queries_total[5m])) > 0.15
+        for: 1m
+        labels:
+          severity: critical
+          service: rag-system
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+  - name: rag_performance
+    rules:
+      # Performance-related alerts
+      - alert: HighQueryLatency
+        expr: histogram_quantile(0.95, rate(rag_query_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: rag-system
+        annotations:
+          summary: "High query latency detected"
+          description: "95th percentile query latency is {{ $value }}s over the last 5 minutes."
+
+      - alert: CriticalQueryLatency
+        expr: histogram_quantile(0.95, rate(rag_query_duration_seconds_bucket[5m])) > 60
+        for: 2m
+        labels:
+          severity: critical
+          service: rag-system
+        annotations:
+          summary: "Critical query latency detected"
+          description: "95th percentile query latency is {{ $value }}s over the last 5 minutes."
+
+      - alert: VectorDBHighLatency
+        expr: histogram_quantile(0.95, rate(rag_vectordb_search_duration_seconds_bucket[5m])) > 5
+        for: 3m
+        labels:
+          severity: warning
+          service: vector-database
+        annotations:
+          summary: "Vector database high latency"
+          description: "Vector database search latency is {{ $value }}s (95th percentile)."
+
+      - alert: AIModelTimeout
+        expr: rate(rag_ai_model_requests_total{status="error"}[5m]) > 2
+        for: 2m
+        labels:
+          severity: warning
+          service: ai-model
+        annotations:
+          summary: "AI model request failures"
+          description: "AI model requests are failing at {{ $value }} requests/second."
+
+  - name: system_resources
+    rules:
+      # System resource alerts
+      - alert: HighCPUUsage
+        expr: rag_system_cpu_usage_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for more than 5 minutes."
+
+      - alert: CriticalCPUUsage
+        expr: rag_system_cpu_usage_percent > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical CPU usage"
+          description: "CPU usage is {{ $value }}% for more than 2 minutes."
+
+      - alert: HighMemoryUsage
+        expr: (rag_system_memory_usage_bytes / (1024^3)) > 8
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize }}B for more than 5 minutes."
+
+      - alert: CriticalMemoryUsage
+        expr: (rag_system_memory_usage_bytes / (1024^3)) > 12
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value | humanize }}B for more than 2 minutes."
+
+      - alert: DiskSpaceWarning
+        expr: (rag_system_disk_usage_bytes / (1024^3)) > 50
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value | humanize }}B. Consider cleanup or expansion."
+
+      - alert: DiskSpaceCritical
+        expr: (rag_system_disk_usage_bytes / (1024^3)) > 80
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical disk space"
+          description: "Disk usage is {{ $value | humanize }}B. Immediate action required."
+
+  - name: business_metrics
+    rules:
+      # Business logic alerts
+      - alert: LowQueryVolume
+        expr: rate(rag_queries_total[1h]) < 0.1
+        for: 30m
+        labels:
+          severity: info
+          service: rag-system
+        annotations:
+          summary: "Low query volume"
+          description: "Query rate is {{ $value }} queries/second over the last hour."
+
+      - alert: DocumentLoadingFailures
+        expr: rate(rag_documents_loaded_total{status="error"}[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: document-loader
+        annotations:
+          summary: "Document loading failures"
+          description: "Document loading failure rate is {{ $value }} failures/second."
+
+      - alert: VectorDBConnectionFailure
+        expr: rate(rag_vectordb_operations_total{status="error"}[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          service: vector-database
+        annotations:
+          summary: "Vector database connection issues"
+          description: "Vector database operations failing at {{ $value }} failures/second."
+
+      - alert: TokenUsageSpike
+        expr: rate(rag_ai_model_tokens_total[5m]) > 1000
+        for: 3m
+        labels:
+          severity: warning
+          service: ai-model
+        annotations:
+          summary: "High token usage detected"
+          description: "Token usage spike: {{ $value }} tokens/second over 5 minutes."
+
+  - name: security_alerts
+    rules:
+      # Security-related alerts
+      - alert: UnusualRequestPattern
+        expr: rate(rag_queries_total[1m]) > 50
+        for: 1m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Unusual request pattern detected"
+          description: "Request rate spike: {{ $value }} requests/second. Possible DDoS or abuse."
+
+      - alert: HighErrorBurst
+        expr: increase(rag_queries_total{status="error"}[1m]) > 20
+        for: 30s
+        labels:
+          severity: critical
+          service: security
+        annotations:
+          summary: "High error burst detected"
+          description: "{{ $value }} errors in the last minute. Possible attack or system failure."
+
+  - name: data_quality
+    rules:
+      # Data quality alerts
+      - alert: CacheHitRateDropped
+        expr: rag_cache_hit_rate < 50
+        for: 10m
+        labels:
+          severity: warning
+          service: data-quality
+        annotations:
+          summary: "Cache hit rate dropped"
+          description: "Cache hit rate is {{ $value }}%. Performance may be degraded."
+
+      - alert: NoRecentDocumentUpdates
+        expr: time() - rag_documents_loaded_total > 86400
+        for: 1h
+        labels:
+          severity: info
+          service: data-quality
+        annotations:
+          summary: "No recent document updates"
+          description: "Documents haven't been updated in over 24 hours."
