@@ -5,12 +5,13 @@
 langchain>=0.1.0,<0.4.0
 langchain-community>=0.0.20,<0.4.0
 langchain-anthropic>=0.1.0,<0.4.0
+langchain-huggingface>=0.0.1,<0.4.0
 
-# Vector database and embeddings - Python 3.13 compatible
-chromadb>=0.4.0,<0.6.0
+# Vector database and embeddings - REQUIRED CORE DEPENDENCIES
 sentence-transformers>=2.2.2,<4.0.0
-# Use numpy compatible with Python 3.13
-numpy>=1.24.0,<2.0.0; python_version>="3.9"
+chromadb>=0.4.0,<0.6.0
+# Use numpy compatible with all Python versions
+numpy>=1.24.0,<2.0.0
 
 # HTTP and web processing
 requests>=2.28.0,<3.0.0
