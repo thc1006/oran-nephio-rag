@@ -34,7 +34,15 @@ class Config:
     """系統配置類別"""
     
     # ============ API 設定 ============
+    # API 模式選擇: anthropic | mock | local | puter
+    API_MODE = os.getenv("API_MODE", "anthropic")
+    
+    # Anthropic API 配置
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    
+    # 本地模型配置 (API_MODE=local 時使用)
+    LOCAL_MODEL_URL = os.getenv("LOCAL_MODEL_URL", "http://localhost:11434")
+    LOCAL_MODEL_NAME = os.getenv("LOCAL_MODEL_NAME", "llama2")
     
     # ============ 向量資料庫設定 ============
     VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./oran_nephio_vectordb")
@@ -162,9 +170,22 @@ class Config:
         errors = []
         
         try:
-            # 檢查必要的環境變數
-            if not cls.ANTHROPIC_API_KEY:
-                errors.append("ANTHROPIC_API_KEY 環境變數未設定")
+            # 檢查 API 模式
+            valid_api_modes = ['anthropic', 'mock', 'local', 'puter']
+            if cls.API_MODE not in valid_api_modes:
+                errors.append(f"API_MODE 必須是以下其中之一: {', '.join(valid_api_modes)}")
+            
+            # 根據 API 模式檢查必要設定
+            if cls.API_MODE == 'anthropic':
+                if not cls.ANTHROPIC_API_KEY:
+                    errors.append("API_MODE=anthropic 時需要設定 ANTHROPIC_API_KEY")
+                elif cls.ANTHROPIC_API_KEY.startswith('test-'):
+                    logger.warning("⚠️ 使用測試用 API 金鑰，可能無法正常運作")
+            elif cls.API_MODE == 'local':
+                if not cls.LOCAL_MODEL_URL:
+                    errors.append("API_MODE=local 時需要設定 LOCAL_MODEL_URL")
+                if not cls.LOCAL_MODEL_NAME:
+                    errors.append("API_MODE=local 時需要設定 LOCAL_MODEL_NAME")
             
             # 檢查數值範圍
             if not (0 <= cls.CLAUDE_TEMPERATURE <= 1):
@@ -279,7 +300,8 @@ class Config:
     @classmethod
     def get_config_summary(cls) -> Dict[str, Any]:
         """取得配置摘要"""
-        return {
+        summary = {
+            "api_mode": cls.API_MODE,
             "claude_model": cls.CLAUDE_MODEL,
             "vector_db_path": cls.VECTOR_DB_PATH,
             "total_sources": len(cls.OFFICIAL_SOURCES),
@@ -291,6 +313,15 @@ class Config:
             "chunk_size": cls.CHUNK_SIZE,
             "chunk_overlap": cls.CHUNK_OVERLAP
         }
+        
+        # 根據 API 模式加入相關配置
+        if cls.API_MODE == 'anthropic':
+            summary["anthropic_api_available"] = bool(cls.ANTHROPIC_API_KEY and not cls.ANTHROPIC_API_KEY.startswith('test-'))
+        elif cls.API_MODE == 'local':
+            summary["local_model_url"] = cls.LOCAL_MODEL_URL
+            summary["local_model_name"] = cls.LOCAL_MODEL_NAME
+        
+        return summary
 
 # 模組層級的便利函數
 def validate_config() -> bool:
