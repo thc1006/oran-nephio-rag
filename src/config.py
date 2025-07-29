@@ -44,6 +44,10 @@ class Config:
     LOCAL_MODEL_URL = os.getenv("LOCAL_MODEL_URL", "http://localhost:11434")
     LOCAL_MODEL_NAME = os.getenv("LOCAL_MODEL_NAME", "llama2")
     
+    # Puter.js 實驗性配置 (API_MODE=puter 時使用)
+    PUTER_RISK_ACKNOWLEDGED = os.getenv("PUTER_RISK_ACKNOWLEDGED", "false").lower() == "true"
+    PUTER_MODEL = os.getenv("PUTER_MODEL", "claude-sonnet-4")
+    
     # ============ 向量資料庫設定 ============
     VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./oran_nephio_vectordb")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "oran_nephio_official")
@@ -186,6 +190,16 @@ class Config:
                     errors.append("API_MODE=local 時需要設定 LOCAL_MODEL_URL")
                 if not cls.LOCAL_MODEL_NAME:
                     errors.append("API_MODE=local 時需要設定 LOCAL_MODEL_NAME")
+            elif cls.API_MODE == 'puter':
+                if not cls.PUTER_RISK_ACKNOWLEDGED:
+                    logger.warning("🚨 Puter.js 實驗性功能需要風險確認")
+                    logger.warning("⚠️ 請設定 PUTER_RISK_ACKNOWLEDGED=true 以啟用此功能")
+                    errors.append("API_MODE=puter 需要設定 PUTER_RISK_ACKNOWLEDGED=true")
+                else:
+                    logger.warning("🧪 已啟用實驗性 Puter.js 整合")
+                    logger.warning("⚠️ 此功能僅建議用於學習和研究")
+                if not cls.PUTER_MODEL:
+                    errors.append("API_MODE=puter 時需要設定 PUTER_MODEL")
             
             # 檢查數值範圍
             if not (0 <= cls.CLAUDE_TEMPERATURE <= 1):
@@ -320,6 +334,10 @@ class Config:
         elif cls.API_MODE == 'local':
             summary["local_model_url"] = cls.LOCAL_MODEL_URL
             summary["local_model_name"] = cls.LOCAL_MODEL_NAME
+        elif cls.API_MODE == 'puter':
+            summary["puter_risk_acknowledged"] = cls.PUTER_RISK_ACKNOWLEDGED
+            summary["puter_model"] = cls.PUTER_MODEL
+            summary["experimental_feature"] = True
         
         return summary
 
