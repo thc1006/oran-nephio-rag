@@ -12,8 +12,12 @@ from typing import Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
-    from src.oran_nephio_rag import ORANNephioRAG
-    from src.config import Config, validate_config
+    try:
+        from src.oran_nephio_rag import ORANNephioRAG
+        from src.config import Config, validate_config
+    except ImportError:
+        from oran_nephio_rag import ORANNephioRAG
+        from config import Config, validate_config
 except ImportError as e:
     print(f"❌ 模組導入失敗: {e}")
     print("請確保已安裝所有依賴套件：pip install -r requirements.txt")

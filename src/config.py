@@ -65,6 +65,23 @@ class Config:
     RETRIEVER_FETCH_K = int(os.getenv("RETRIEVER_FETCH_K", "15"))
     RETRIEVER_LAMBDA_MULT = float(os.getenv("RETRIEVER_LAMBDA_MULT", "0.7"))
     
+    # ============ 文件載入器驗證設定 ============
+    MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "500"))  # 最小內容長度 (bytes)
+    MIN_EXTRACTED_CONTENT_LENGTH = int(os.getenv("MIN_EXTRACTED_CONTENT_LENGTH", "100"))  # 最小提取內容長度
+    MIN_LINE_LENGTH = int(os.getenv("MIN_LINE_LENGTH", "3"))  # 最小行長度
+    MAX_LINE_MERGE_LENGTH = int(os.getenv("MAX_LINE_MERGE_LENGTH", "80"))  # 行合併長度閾值
+    CONTENT_PREVIEW_LENGTH = int(os.getenv("CONTENT_PREVIEW_LENGTH", "200"))  # 內容預覽長度
+    MIN_KEYWORD_COUNT = int(os.getenv("MIN_KEYWORD_COUNT", "2"))  # 最小關鍵字數量
+    
+    # ============ 重試和延遲設定 ============
+    RETRY_DELAY_BASE = float(os.getenv("RETRY_DELAY_BASE", "2.0"))  # 重試延遲基數
+    MAX_RETRY_DELAY = int(os.getenv("MAX_RETRY_DELAY", "10"))  # 最大重試延遲 (秒)
+    REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "1.0"))  # 請求間延遲 (秒)
+    
+    # ============ 安全性設定 ============
+    VERIFY_SSL = os.getenv("VERIFY_SSL", "true").lower() == "true"  # 驗證 SSL 憑證
+    SSL_TIMEOUT = int(os.getenv("SSL_TIMEOUT", "30"))  # SSL 連線超時時間
+    
     # ============ 官方文件來源白名單 ============
     OFFICIAL_SOURCES: List[DocumentSource] = [
         DocumentSource(

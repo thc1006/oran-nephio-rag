@@ -11,7 +11,10 @@ import requests
 from bs4 import BeautifulSoup, Comment
 from langchain.docstore.document import Document
 
-from .config import DocumentSource, Config
+try:
+    from .config import DocumentSource, Config
+except ImportError:
+    from config import DocumentSource, Config
 
 # 設定模組日誌記錄器
 logger = logging.getLogger(__name__)
@@ -19,7 +22,13 @@ logger = logging.getLogger(__name__)
 class DocumentContentCleaner:
     """文件內容清理器"""
     
-    def __init__(self):
+    def __init__(self, config: Optional['Config'] = None):
+        try:
+            from .config import Config
+        except ImportError:
+            from config import Config
+        self.config = config or Config()
+        
         # 不需要的 HTML 標籤
         self.unwanted_tags = [
             'script', 'style', 'nav', 'header', 'footer', 'aside',
@@ -120,7 +129,7 @@ class DocumentContentCleaner:
         for selector in content_selectors:
             try:
                 content_element = soup.select_one(selector)
-                if content_element and len(content_element.get_text(strip=True)) > 100:
+                if content_element and len(content_element.get_text(strip=True)) > self.config.MIN_EXTRACTED_CONTENT_LENGTH:
                     logger.debug(f"使用選擇器 '{selector}' 找到主要內容")
                     return content_element
             except Exception as e:
@@ -160,7 +169,7 @@ class DocumentContentCleaner:
                 continue
             
             # 跳過太短的行（可能是導航元素）
-            if len(line) < 3:
+            if len(line) < self.config.MIN_LINE_LENGTH:
                 continue
             
             # 跳過符合跳過模式的行
@@ -193,7 +202,7 @@ class DocumentContentCleaner:
         for line in lines:
             # 如果當前行很短且不以句號結尾，可能需要與下一行合併
             if (len(current_line) > 0 and 
-                len(current_line) < 80 and 
+                len(current_line) < self.config.MAX_LINE_MERGE_LENGTH and 
                 not current_line.endswith(('.', '!', '?', ':', ';', '。', '！', '？', '：', '；')) and
                 not line.startswith(('#', '-', '*', '1.', '2.', '3.', '4.', '5.'))):
                 current_line += " " + line
@@ -236,7 +245,7 @@ class DocumentLoader:
         
         # 初始化內容清理器
         try:
-            self.content_cleaner = DocumentContentCleaner()
+            self.content_cleaner = DocumentContentCleaner(self.config)
         except Exception as e:
             logger.error(f"內容清理器初始化失敗: {e}")
             raise
@@ -293,7 +302,7 @@ class DocumentLoader:
             
             # 重試前等待
             if attempt < self.max_retries - 1:
-                wait_time = min(2 ** attempt, 10)  # 指數退避，最大 10 秒
+                wait_time = min(self.config.RETRY_DELAY_BASE ** attempt, self.config.MAX_RETRY_DELAY)  # 指數退避
                 logger.info(f"等待 {wait_time} 秒後重試...")
                 time.sleep(wait_time)
         
@@ -308,10 +317,15 @@ class DocumentLoader:
                 url,
                 timeout=self.timeout,
                 allow_redirects=True,
-                stream=False
+                stream=False,
+                verify=self.config.VERIFY_SSL  # 啟用 SSL 憑證驗證
             )
             response.raise_for_status()
             return response
+        except requests.exceptions.SSLError as e:
+            logger.error(f"SSL 憑證驗證失敗: {e}")
+            logger.warning("如果您確信網站安全，可在 .env 中設定 VERIFY_SSL=false")
+            raise
         except Exception as e:
             logger.error(f"HTTP 請求失敗: {e}")
             raise
@@ -325,8 +339,8 @@ class DocumentLoader:
         
         # 檢查內容長度
         content_length = len(response.content)
-        if content_length < 500:
-            raise ValueError(f"回應內容太短 ({content_length} bytes)")
+        if content_length < self.config.MIN_CONTENT_LENGTH:
+            raise ValueError(f"回應內容太短 ({content_length} bytes，最少需要 {self.config.MIN_CONTENT_LENGTH} bytes)")
         
         # 檢查狀態碼
         if response.status_code != 200:
@@ -357,8 +371,8 @@ class DocumentLoader:
     
     def _validate_content(self, content: str):
         """驗證提取的內容品質"""
-        if not content or len(content.strip()) < 100:
-            raise ValueError(f"提取的內容太短 ({len(content)} 字元)")
+        if not content or len(content.strip()) < self.config.MIN_EXTRACTED_CONTENT_LENGTH:
+            raise ValueError(f"提取的內容太短 ({len(content)} 字元，最少需要 {self.config.MIN_EXTRACTED_CONTENT_LENGTH} 字元)")
         
         # 檢查是否包含相關關鍵字（針對 O-RAN 和 Nephio 文件）
         relevant_keywords = [
@@ -370,8 +384,8 @@ class DocumentLoader:
         content_lower = content.lower()
         keyword_count = sum(1 for keyword in relevant_keywords if keyword in content_lower)
         
-        if keyword_count < 2:
-            logger.warning(f"內容可能不相關，找到的關鍵字數量: {keyword_count}")
+        if keyword_count < self.config.MIN_KEYWORD_COUNT:
+            logger.warning(f"內容可能不相關，找到的關鍵字數量: {keyword_count}，最少需要 {self.config.MIN_KEYWORD_COUNT} 個")
     
     def _create_document(self, content: str, source: DocumentSource, response: requests.Response) -> Document:
         """建立 LangChain Document 物件"""
@@ -437,7 +451,7 @@ class DocumentLoader:
             
             # 在請求間添加延遲，避免對伺服器造成壓力
             if i < len(sources):
-                time.sleep(1)
+                time.sleep(self.config.REQUEST_DELAY)
         
         end_time = time.time()
         

@@ -20,8 +20,12 @@ from langchain_anthropic import ChatAnthropic
 from langchain.docstore.document import Document
 from langchain.prompts import PromptTemplate
 
-from .config import Config, DocumentSource
-from .document_loader import DocumentLoader
+try:
+    from .config import Config, DocumentSource
+    from .document_loader import DocumentLoader
+except ImportError:
+    from config import Config, DocumentSource
+    from document_loader import DocumentLoader
 
 # 設定模組日誌記錄器
 logger = logging.getLogger(__name__)
@@ -255,7 +259,7 @@ class QueryProcessor:
                         "type": metadata.get("source_type", ""),
                         "description": metadata.get("description", ""),
                         "title": metadata.get("title", ""),
-                        "content_preview": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
+                        "content_preview": doc.page_content[:self.config.CONTENT_PREVIEW_LENGTH] + "..." if len(doc.page_content) > self.config.CONTENT_PREVIEW_LENGTH else doc.page_content
                     })
             
             return {
