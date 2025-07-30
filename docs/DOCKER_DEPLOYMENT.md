@@ -9,8 +9,23 @@
 - **Docker**: 20.10+ 
 - **Docker Compose**: 2.0+
 - **作業系統**: Linux, macOS, Windows 10/11 with WSL2
-- **記憶體**: 最少 4GB，建議 8GB+
+- **記憶體**: 最少 4GB，建議 8GB+ (包含 Chrome 瀏覽器)
 - **儲存空間**: 最少 5GB 可用空間
+
+### 🚀 Puter.js 整合
+
+本系統使用 **Puter.js 瀏覽器自動化** 作為預設的 Claude API 存取方法：
+
+✅ **優勢**：
+- 無需 Anthropic API 金鑰
+- 免費使用 Claude 4
+- 支援所有 Claude 功能
+- 基於官方教學：https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/
+
+⚙️ **技術架構**：
+- Chrome 瀏覽器 + Selenium WebDriver
+- 自動化 Puter.js JavaScript API
+- 支援無頭瀏覽器模式
 
 ### 環境準備
 
@@ -36,8 +51,13 @@ cd oran-nephio-rag
 # 複製環境變數檔案
 cp .env.example .env
 
-# 編輯環境變數
+# 編輯環境變數 (Puter.js 瀏覽器模式)
 nano .env
+
+# 必要設定 (瀏覽器模式，無需 API 金鑰):
+# API_MODE=browser
+# BROWSER_HEADLESS=true
+# PUTER_MODEL=claude-sonnet-4
 
 # 啟動開發環境
 docker-compose -f docker-compose.dev.yml up -d
