@@ -6,11 +6,12 @@ O-RAN × Nephio RAG 系統現在支援多種 API 模式，讓您可以根據不�
 
 ## 🎯 支援的 API 模式
 
-### 1. **Anthropic 模式** (推薦 - 生產環境)
-- **描述**: 使用官方 Anthropic Claude API
-- **優點**: 最佳回答品質、完整功能支援、官方支援
-- **缺點**: 需要付費 API 金鑰
-- **適用**: 生產環境、正式部署
+### 1. **Puter.js 瀏覽器模式** (🚀 預設推薦)
+- **描述**: 使用 Puter.js 瀏覽器自動化技術存取 Claude API
+- **優點**: 免費使用、無需 API 金鑰、完整 Claude 功能
+- **配置**: 使用 Chrome 瀏覽器自動化和 Selenium WebDriver
+- **適用**: 預設模式、適合大多數使用場景
+- **教學**: 遵循 https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/
 
 ### 2. **Mock 模式** (測試/開發用)
 - **描述**: 使用預設的模擬回答
@@ -24,12 +25,10 @@ O-RAN × Nephio RAG 系統現在支援多種 API 模式，讓您可以根據不�
 - **缺點**: 需要硬體資源、設定複雜
 - **適用**: 隱私敏感環境、內部部署
 
-### 4. **Puter 模式** (🧪 實驗性 - 高風險)
-- **描述**: 第三方 Claude API 服務整合
-- **優點**: 聲稱免費使用 Claude API
-- **缺點**: 重大安全和隱私風險、服務不穩定
-- **適用**: 僅供學習、研究、概念驗證
-- **狀態**: ⚠️ 已實現但需風險確認
+### 4. **Anthropic 直接模式** (需 API 金鑰)
+- **描述**: 使用官方 Anthropic Claude API (已停用)
+- **狀態**: ⚠️ 不再建議使用，改用 Puter.js 模式
+- **說明**: 需要付費 API 金鑰，已被 Puter.js 模式取代
 
 ---
 
@@ -41,13 +40,22 @@ O-RAN × Nephio RAG 系統現在支援多種 API 模式，讓您可以根據不�
 
 ```bash
 # ============ API 模式配置 ============
-# 選擇 API 模式: anthropic | mock | local | puter
-API_MODE=anthropic
+# 選擇 API 模式: browser | mock | local | anthropic
+API_MODE=browser
 
-# ============ Anthropic API 配置 ============
-# (API_MODE=anthropic 時必填)
-ANTHROPIC_API_KEY=sk-ant-api03-your-api-key-here
-CLAUDE_MODEL=claude-3-sonnet-20240229
+# ============ Puter.js 瀏覽器模式配置 ============
+# (API_MODE=browser 時使用，預設值)
+BROWSER_HEADLESS=true
+PUTER_MODEL=claude-sonnet-4
+BROWSER_TIMEOUT=120
+BROWSER_WAIT_TIME=10
+MAX_TOKENS=4000
+TEMPERATURE=0.1
+
+# ============ Anthropic API 配置 (已停用) ============
+# (不再建議使用)
+# ANTHROPIC_API_KEY=sk-ant-api03-your-api-key-here
+# CLAUDE_MODEL=claude-3-sonnet-20240229
 CLAUDE_MAX_TOKENS=4000
 CLAUDE_TEMPERATURE=0.1
 
