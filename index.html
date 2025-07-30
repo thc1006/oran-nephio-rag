@@ -11,7 +11,7 @@ lang: zh-TW
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{ page.description | default: site.description }}">
-    <meta name="keywords" content="O-RAN, Nephio, RAG, AI, 人工智慧, 5G, 電信, 網路自動化, 檢索增強生成, LangChain, Claude AI">
+    <meta name="keywords" content="O-RAN, Nephio, RAG, AI, 人工智慧, 5G, 電信, 網路自動化, 檢索增強生成, 智能問答">
     <meta name="author" content="{{ site.author.name }}">
     
     <!-- Open Graph / Facebook -->
@@ -170,11 +170,11 @@ lang: zh-TW
                     <div class="feature-icon">🤖</div>
                     <h3 class="feature-title">智能問答</h3>
                     <p class="feature-description">
-                        使用 Claude AI 模型提供精確的技術問答，支援複雜查詢和上下文理解
+                        使用先進的 AI 模型提供精確的技術問答，支援複雜查詢和上下文理解
                     </p>
                     <div class="feature-tech">
-                        <span class="tech-tag">Claude AI</span>
-                        <span class="tech-tag">LangChain</span>
+                        <span class="tech-tag">AI Powered</span>
+                        <span class="tech-tag">Browser Integration</span>
                     </div>
                 </div>
                 <div class="feature-card">
@@ -196,29 +196,29 @@ lang: zh-TW
                     </p>
                     <div class="feature-tech">
                         <span class="tech-tag">ChromaDB</span>
-                        <span class="tech-tag">Embeddings</span>
+                        <span class="tech-tag">Vector Search</span>
                     </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
-                    <h3 class="feature-title">異步處理</h3>
+                    <h3 class="feature-title">高效處理</h3>
                     <p class="feature-description">
-                        支援高併發的異步處理模式，提供快速響應和優異的系統性能
+                        輕量級設計支援快速響應，優化的架構提供卓越的系統性能
                     </p>
                     <div class="feature-tech">
-                        <span class="tech-tag">AsyncIO</span>
-                        <span class="tech-tag">FastAPI</span>
+                        <span class="tech-tag">Lightweight</span>
+                        <span class="tech-tag">Optimized</span>
                     </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📊</div>
                     <h3 class="feature-title">完整監控</h3>
                     <p class="feature-description">
-                        內建 OpenTelemetry、Prometheus 和 Grafana 監控，提供全面的可觀察性
+                        內建監控和日誌系統，提供全面的可觀察性和性能追蹤
                     </p>
                     <div class="feature-tech">
-                        <span class="tech-tag">Prometheus</span>
-                        <span class="tech-tag">Grafana</span>
+                        <span class="tech-tag">Monitoring</span>
+                        <span class="tech-tag">Analytics</span>
                     </div>
                 </div>
                 <div class="feature-card">
@@ -277,7 +277,7 @@ lang: zh-TW
                         <div class="info-card">
                             <h4>🔬 技術說明</h4>
                             <ul>
-                                <li>使用 Claude AI 進行自然語言處理</li>
+                                <li>使用先進 AI 進行自然語言處理</li>
                                 <li>基於官方 O-RAN 和 Nephio 文檔</li>
                                 <li>向量資料庫實現語義搜索</li>
                                 <li>支援繁體中文和英文查詢</li>
@@ -308,7 +308,7 @@ lang: zh-TW
             <div class="section-header">
                 <h2 class="section-title">🏗️ 系統架構</h2>
                 <p class="section-subtitle">
-                    現代化的微服務架構，支援高效能和高可擴展性
+                    現代化的架構，支援高效能和高可擴展性
                 </p>
             </div>
             <div class="architecture-diagram">
@@ -333,8 +333,8 @@ lang: zh-TW
                 <div class="arch-layer">
                     <h3 class="layer-title">AI 服務層</h3>
                     <div class="layer-components">
-                        <div class="component">Claude AI</div>
-                        <div class="component">Embeddings</div>
+                        <div class="component">AI Models</div>
+                        <div class="component">Text Processing</div>
                         <div class="component">Vector Search</div>
                     </div>
                 </div>
@@ -342,7 +342,7 @@ lang: zh-TW
                 <div class="arch-layer">
                     <h3 class="layer-title">資料儲存層</h3>
                     <div class="layer-components">
-                        <div class="component">ChromaDB</div>
+                        <div class="component">Vector DB</div>
                         <div class="component">Document Cache</div>
                         <div class="component">Metadata Store</div>
                     </div>
@@ -350,9 +350,9 @@ lang: zh-TW
                 <div class="arch-layer monitoring">
                     <h3 class="layer-title">監控 & 可觀察性</h3>
                     <div class="layer-components">
-                        <div class="component">Prometheus</div>
-                        <div class="component">Grafana</div>
-                        <div class="component">Jaeger</div>
+                        <div class="component">Logging</div>
+                        <div class="component">Metrics</div>
+                        <div class="component">Health Checks</div>
                     </div>
                 </div>
             </div>
@@ -386,7 +386,7 @@ pip install -r requirements.txt</code></pre>
                         <h3 class="step-title">設定環境</h3>
                         <div class="code-block">
                             <pre><code>cp .env.example .env
-# 編輯 .env 並設定 ANTHROPIC_API_KEY</code></pre>
+# 編輯 .env 並設定必要參數</code></pre>
                         </div>
                     </div>
                 </div>
@@ -483,8 +483,8 @@ python -c "from src import quick_query; print(quick_query('什麼是 Nephio？')
                     <ul>
                         <li><a href="https://www.o-ran.org/">O-RAN Alliance</a></li>
                         <li><a href="https://nephio.org/">Nephio Project</a></li>
-                        <li><a href="https://www.anthropic.com/">Anthropic Claude</a></li>
-                        <li><a href="https://langchain.com/">LangChain</a></li>
+                        <li><a href="https://python.org/">Python</a></li>
+                        <li><a href="https://docker.com/">Docker</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
@@ -510,7 +510,7 @@ python -c "from src import quick_query; print(quick_query('什麼是 Nephio？')
                 <p>&copy; 2024 {{ site.author.name }}. Made with ❤️ for the Telecom and Cloud Native Community.</p>
                 <div class="footer-badges">
                     <img src="https://img.shields.io/badge/built%20with-❤️-red" alt="Built with love">
-                    <img src="https://img.shields.io/badge/powered%20by-Claude%20AI-blue" alt="Powered by Claude AI">
+                    <img src="https://img.shields.io/badge/powered%20by-AI-blue" alt="Powered by AI">
                 </div>
             </div>
         </div>
