@@ -15,8 +15,8 @@ O-RAN × Nephio RAG 系統
 """
 
 __version__ = "1.0.0"
-__author__ = "Development Team"
-__email__ = "dev-team@company.com"
+__author__ = "Tsai, Hsiu-Chi (thc1006)"
+__email__ = "hctsai@linux.com"
 
 # 主要類別導入
 from .config import Config, DocumentSource, validate_config

@@ -9,13 +9,13 @@ description = "O-RAN × Nephio RAG System - Intelligent Retrieval-Augmented Gene
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Development Team", email = "dev-team@company.com"}
+    {name = "Tsai, Hsiu-Chi", email = "hctsai@linux.com"}
 ]
 maintainers = [
-    {name = "Development Team", email = "dev-team@company.com"}
+    {name = "Tsai, Hsiu-Chi (thc1006)", email = "hctsai@linux.com"}
 ]
 keywords = [
-    "oran", "nephio", "rag", "ai", "langchain", "anthropic",
+    "oran", "nephio", "rag", "ai", "langchain", "browser-automation",
     "vector-database", "document-retrieval", "nlp", "5g", "telecom"
 ]
 classifiers = [
@@ -34,29 +34,45 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "langchain>=0.1.0,<0.4.0",
+    # Core LangChain (lightweight, without direct API integrations)
+    "langchain-core>=0.1.0,<0.4.0",
     "langchain-community>=0.0.20,<0.4.0",
-    "langchain-anthropic>=0.1.0,<0.4.0",
-    "langchain-huggingface>=0.0.1,<0.4.0",
-    "sentence-transformers>=2.2.2,<4.0.0",
+    
+    # Vector database
     "chromadb>=0.4.0,<0.6.0",
-    "numpy>=1.24.0,<2.0.0",
+    
+    # Browser automation for AI integration
+    "selenium>=4.0.0,<5.0.0",
+    "webdriver-manager>=3.8.0,<5.0.0",
+    
+    # Web processing
     "requests>=2.28.0,<3.0.0",
     "beautifulsoup4>=4.11.0,<5.0.0",
     "lxml>=4.9.0,<5.0.0",
+    "aiohttp>=3.8.0,<4.0.0",
+    
+    # Configuration and environment
     "python-dotenv>=1.0.0,<2.0.0",
     "pydantic>=2.4.0,<3.0.0",
     "pydantic-settings>=2.4.0,<3.0.0",
+    
+    # Text processing (lightweight)
+    "nltk>=3.8,<4.0.0",
+    
+    # Scheduling and utilities
     "schedule>=1.2.0,<2.0.0",
     "rich>=13.0.0,<14.0.0",
     "tqdm>=4.64.0,<5.0.0",
     "psutil>=5.9.0,<6.0.0",
     "python-dateutil>=2.8.0,<3.0.0",
+    
+    # Data processing
     "jsonschema>=4.19.0,<5.0.0",
     "urllib3>=1.26.0,<3.0.0",
     "certifi>=2023.0.0",
+    
+    # System monitoring
     "memory-profiler>=0.60.0,<1.0.0",
-    "aiohttp>=3.8.0,<4.0.0",
 ]
 
 [project.optional-dependencies]
