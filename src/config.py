@@ -33,26 +33,26 @@ class DocumentSource:
 class Config:
     """系統配置類別"""
     
-    # ============ API 設定 ============
-    # API 模式選擇: anthropic | mock | local | puter
-    API_MODE = os.getenv("API_MODE", "anthropic")
+    # ============ API 設定 (Browser Mode Only) ============
+    # API 模式選擇: browser | mock (僅支援瀏覽器自動化模式)
+    API_MODE = os.getenv("API_MODE", "browser")
     
-    # Anthropic API 配置
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    # ============ 瀏覽器自動化配置 ============
+    # 瀏覽器模式設定
+    BROWSER_HEADLESS = os.getenv("BROWSER_HEADLESS", "true").lower() == "true"
+    BROWSER_TIMEOUT = int(os.getenv("BROWSER_TIMEOUT", "60"))
+    BROWSER_WAIT_TIME = int(os.getenv("BROWSER_WAIT_TIME", "5"))
     
-    # 本地模型配置 (API_MODE=local 時使用)
-    LOCAL_MODEL_URL = os.getenv("LOCAL_MODEL_URL", "http://localhost:11434")
-    LOCAL_MODEL_NAME = os.getenv("LOCAL_MODEL_NAME", "llama2")
+    # Puter.js 模型設定
+    PUTER_MODEL = os.getenv("PUTER_MODEL", "claude-sonnet-4")
     
     # ============ 向量資料庫設定 ============
     VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./oran_nephio_vectordb")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "oran_nephio_official")
-    EMBEDDINGS_CACHE_PATH = os.getenv("EMBEDDINGS_CACHE_PATH", "./embeddings_cache")
     
-    # ============ Claude 模型設定 ============
-    CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-opus-20240229")
-    CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "2048"))
-    CLAUDE_TEMPERATURE = float(os.getenv("CLAUDE_TEMPERATURE", "0.1"))
+    # ============ 模型設定 ============
+    MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4000"))
+    TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
     
     # ============ 文件載入設定 ============
     MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
@@ -170,29 +170,33 @@ class Config:
         errors = []
         
         try:
-            # 檢查 API 模式
-            valid_api_modes = ['anthropic', 'mock', 'local', 'puter']
+            # 檢查 API 模式 (僅支援瀏覽器自動化模式)
+            valid_api_modes = ['browser', 'mock']
             if cls.API_MODE not in valid_api_modes:
-                errors.append(f"API_MODE 必須是以下其中之一: {', '.join(valid_api_modes)}")
+                errors.append(f"API_MODE 必須是以下其中之一: {', '.join(valid_api_modes)} (僅支援瀏覽器自動化模式)")
             
-            # 根據 API 模式檢查必要設定
-            if cls.API_MODE == 'anthropic':
-                if not cls.ANTHROPIC_API_KEY:
-                    errors.append("API_MODE=anthropic 時需要設定 ANTHROPIC_API_KEY")
-                elif cls.ANTHROPIC_API_KEY.startswith('test-'):
-                    logger.warning("⚠️ 使用測試用 API 金鑰，可能無法正常運作")
-            elif cls.API_MODE == 'local':
-                if not cls.LOCAL_MODEL_URL:
-                    errors.append("API_MODE=local 時需要設定 LOCAL_MODEL_URL")
-                if not cls.LOCAL_MODEL_NAME:
-                    errors.append("API_MODE=local 時需要設定 LOCAL_MODEL_NAME")
+            # 檢查瀏覽器設定
+            if cls.API_MODE == 'browser':
+                if not cls.PUTER_MODEL:
+                    errors.append("API_MODE=browser 時需要設定 PUTER_MODEL")
+                
+                valid_models = ['claude-sonnet-4', 'claude-opus-4', 'claude-sonnet-3.7', 'claude-sonnet-3.5']
+                if cls.PUTER_MODEL not in valid_models:
+                    errors.append(f"PUTER_MODEL 必須是以下其中之一: {', '.join(valid_models)}")
+                
+                # 瀏覽器配置檢查
+                if cls.BROWSER_TIMEOUT < 10:
+                    errors.append("BROWSER_TIMEOUT 不能少於 10 秒")
+                    
+                if cls.BROWSER_WAIT_TIME < 1:
+                    errors.append("BROWSER_WAIT_TIME 不能少於 1 秒")
             
             # 檢查數值範圍
-            if not (0 <= cls.CLAUDE_TEMPERATURE <= 1):
-                errors.append("CLAUDE_TEMPERATURE 必須在 0-1 之間")
+            if not (0 <= cls.TEMPERATURE <= 1):
+                errors.append("TEMPERATURE 必須在 0-1 之間")
             
-            if cls.CLAUDE_MAX_TOKENS < 100:
-                errors.append("CLAUDE_MAX_TOKENS 不能少於 100")
+            if cls.MAX_TOKENS < 100:
+                errors.append("MAX_TOKENS 不能少於 100")
             
             if cls.CHUNK_SIZE < 100:
                 errors.append("CHUNK_SIZE 不能少於 100")
@@ -232,8 +236,7 @@ class Config:
         """確保必要目錄存在"""
         directories = [
             ("日誌目錄", pathlib.Path(cls.LOG_FILE).parent),
-            ("向量資料庫目錄", pathlib.Path(cls.VECTOR_DB_PATH)),
-            ("嵌入模型快取目錄", pathlib.Path(cls.EMBEDDINGS_CACHE_PATH))
+            ("向量資料庫目錄", pathlib.Path(cls.VECTOR_DB_PATH))
         ]
         
         for name, directory in directories:
@@ -302,7 +305,9 @@ class Config:
         """取得配置摘要"""
         summary = {
             "api_mode": cls.API_MODE,
-            "claude_model": cls.CLAUDE_MODEL,
+            "puter_model": cls.PUTER_MODEL,
+            "browser_headless": cls.BROWSER_HEADLESS,
+            "browser_timeout": cls.BROWSER_TIMEOUT,
             "vector_db_path": cls.VECTOR_DB_PATH,
             "total_sources": len(cls.OFFICIAL_SOURCES),
             "enabled_sources": len(cls.get_enabled_sources()),
@@ -311,15 +316,17 @@ class Config:
             "auto_sync_enabled": cls.AUTO_SYNC_ENABLED,
             "sync_interval_hours": cls.SYNC_INTERVAL_HOURS,
             "chunk_size": cls.CHUNK_SIZE,
-            "chunk_overlap": cls.CHUNK_OVERLAP
+            "chunk_overlap": cls.CHUNK_OVERLAP,
+            "max_tokens": cls.MAX_TOKENS,
+            "temperature": cls.TEMPERATURE,
+            "constraint_compliant": True,
+            "integration_method": "browser_automation"
         }
         
-        # 根據 API 模式加入相關配置
-        if cls.API_MODE == 'anthropic':
-            summary["anthropic_api_available"] = bool(cls.ANTHROPIC_API_KEY and not cls.ANTHROPIC_API_KEY.startswith('test-'))
-        elif cls.API_MODE == 'local':
-            summary["local_model_url"] = cls.LOCAL_MODEL_URL
-            summary["local_model_name"] = cls.LOCAL_MODEL_NAME
+        # 瀏覽器模式配置
+        if cls.API_MODE == 'browser':
+            summary["browser_wait_time"] = cls.BROWSER_WAIT_TIME
+            summary["integration_type"] = "browser_automation"
         
         return summary
 

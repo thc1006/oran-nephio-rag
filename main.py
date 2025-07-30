@@ -13,14 +13,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
     try:
-        from src.oran_nephio_rag import ORANNephioRAG
+        from src.oran_nephio_rag_fixed import PuterRAGSystem as ORANNephioRAG
         from src.config import Config, validate_config
     except ImportError:
-        from oran_nephio_rag import ORANNephioRAG
+        from oran_nephio_rag_fixed import PuterRAGSystem as ORANNephioRAG
         from config import Config, validate_config
 except ImportError as e:
     print(f"❌ 模組導入失敗: {e}")
     print("請確保已安裝所有依賴套件：pip install -r requirements.txt")
+    print("注意：現在使用符合 Puter.js 約束的版本")
     sys.exit(1)
 
 def setup_logging() -> None:
