@@ -9,30 +9,39 @@ import shutil
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-# LangChain imports
+# Core libraries
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-# Use new langchain-huggingface package to avoid deprecation warnings
-try:
-    from langchain_huggingface import HuggingFaceEmbeddings
-except ImportError:
-    # Fallback to community version if huggingface package not available
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.chains import RetrievalQA
-from langchain_anthropic import ChatAnthropic
 from langchain.docstore.document import Document
-from langchain.prompts import PromptTemplate
+
+# Lightweight embeddings - removed heavy sentence-transformers dependency  
+# Will use simple TF-IDF approaches for now
+import nltk
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    # Fallback to basic text processing if sklearn not available
+    SKLEARN_AVAILABLE = False
+    import logging
+    logging.getLogger(__name__).warning("sklearn not available, using basic text processing")
+
+# CONSTRAINT COMPLIANT: Using Puter.js integration instead of direct Anthropic API
+# Following: https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/
+# REMOVED: from langchain_anthropic import ChatAnthropic (violates constraint)
 
 try:
     from .config import Config
     from .document_loader import DocumentLoader
     from .simple_monitoring import get_monitoring, monitor_query
-    from .api_adapters import LLMManager
+    from .puter_integration import PuterRAGManager, create_puter_rag_manager
 except ImportError:
     from config import Config
     from document_loader import DocumentLoader
     from simple_monitoring import get_monitoring, monitor_query
-    from api_adapters import LLMManager
+    from puter_integration import PuterRAGManager, create_puter_rag_manager
 
 # 設定模組日誌記錄器
 logger = logging.getLogger(__name__)
@@ -50,17 +59,21 @@ class VectorDatabaseManager:
         self._setup_text_splitter()
     
     def _setup_embeddings(self):
-        """設定嵌入模型"""
+        """設定輕量級嵌入模型 (使用 TF-IDF 代替 HuggingFace)"""
         try:
             cache_dir = self.config.EMBEDDINGS_CACHE_PATH
             os.makedirs(cache_dir, exist_ok=True)
             
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                cache_folder=cache_dir,
-                model_kwargs={'device': 'cpu'}
+            # 使用 TF-IDF 向量化器作為輕量級替代方案
+            self.embeddings = TfidfVectorizer(
+                max_features=5000,  # 限制特徵數量以節省記憶體
+                stop_words='english',
+                ngram_range=(1, 2),  # 使用 1-gram 和 2-gram
+                min_df=2,  # 忽略出現次數少於2的詞
+                max_df=0.8  # 忽略出現在超過80%文檔中的詞
             )
-            logger.info("✅ 嵌入模型載入成功")
+            
+            logger.info("✅ 輕量級嵌入模型 (TF-IDF) 載入成功")
             
         except Exception as e:
             logger.error(f"❌ 嵌入模型載入失敗: {e}")
@@ -186,94 +199,41 @@ class VectorDatabaseManager:
 
 
 class QueryProcessor:
-    """查詢處理器 - 支援多種 API 模式"""
+    """查詢處理器 - 使用符合約束的 Puter.js 整合"""
     
     def __init__(self, config: Optional[Config] = None):
         self.config = config or Config()
-        self.llm_manager = None
-        self.llm = None
-        self.qa_chain = None
-        self._setup_llm()
+        self.puter_manager = None
+        self._setup_puter_integration()
     
-    def _setup_llm(self):
-        """設定語言模型 - 支援多種 API 模式"""
+    def _setup_puter_integration(self):
+        """設定 Puter.js Claude 整合"""
         try:
-            # 創建 LLM 管理器
-            llm_config = {
-                'api_key': self.config.ANTHROPIC_API_KEY,
-                'model_name': self.config.CLAUDE_MODEL,
-                'max_tokens': self.config.CLAUDE_MAX_TOKENS,
-                'temperature': self.config.CLAUDE_TEMPERATURE,
-                'base_url': getattr(self.config, 'LOCAL_MODEL_URL', None)
-            }
+            # 從配置獲取模型設定
+            model = getattr(self.config, 'PUTER_MODEL', 'claude-sonnet-4')
+            headless = True  # 預設使用無頭模式
             
-            self.llm_manager = LLMManager(llm_config)
+            # 創建 Puter.js RAG 管理器
+            self.puter_manager = create_puter_rag_manager(
+                model=model,
+                headless=headless
+            )
             
-            # 根據 API 模式設定 LLM
-            api_mode = os.getenv('API_MODE', 'anthropic').lower()
+            # 設定為主要的 LLM 管理器 (替代直接 API)
+            self.llm_manager = self.puter_manager
             
-            if api_mode == 'anthropic' and self.config.ANTHROPIC_API_KEY:
-                # 使用傳統的 ChatAnthropic 以確保與 LangChain 完全相容
-                self.llm = ChatAnthropic(
-                    model_name=self.config.CLAUDE_MODEL,
-                    api_key=self.config.ANTHROPIC_API_KEY,
-                    max_tokens_to_sample=self.config.CLAUDE_MAX_TOKENS,
-                    temperature=self.config.CLAUDE_TEMPERATURE
-                )
-                logger.info("✅ Claude 模型設定成功 (官方 API 模式)")
-            else:
-                # 對於其他模式，使用我們的適配器系統
-                self.llm = None  # 將在 process_query 中直接使用 llm_manager
-                logger.info(f"✅ LLM 管理器設定成功 ({api_mode} 模式)")
+            logger.info(f"✅ Puter.js Claude 整合設定成功 (模型: {model})")
             
         except Exception as e:
-            logger.error(f"❌ LLM 設定失敗: {e}")
-            # 如果失敗，至少嘗試創建 LLM 管理器
-            try:
-                self.llm_manager = LLMManager()
-                logger.info("✅ 已切換到預設 LLM 管理器")
-            except:
-                raise e
+            logger.error(f"❌ Puter.js 整合設定失敗: {e}")
+            raise e
     
     def setup_qa_chain(self, retriever) -> bool:
-        """設定問答鏈 - 支援多種 API 模式"""
+        """設定問答鏈 - 使用 Puter.js 模式"""
         try:
-            # 檢查是否使用傳統模式
-            if self.llm is not None:
-                # 傳統 LangChain 模式
-                prompt_template = """你是一位專精於 O-RAN 和 Nephio 技術的專家助手。請根據提供的上下文資訊，用繁體中文回答問題。
-
-請遵循以下原則：
-1. 只根據提供的上下文資訊回答問題
-2. 如果上下文中沒有相關資訊，請明確說明
-3. 回答要準確、詳細且有條理
-4. 優先引用官方文件的內容
-5. 如果涉及技術實作，請提供具體的步驟或範例
-
-上下文資訊：
-{context}
-
-問題：{question}
-
-回答："""
-
-                prompt = PromptTemplate(
-                    template=prompt_template,
-                    input_variables=["context", "question"]
-                )
-                
-                self.qa_chain = RetrievalQA.from_chain_type(
-                    llm=self.llm,
-                    chain_type="stuff",
-                    retriever=retriever,
-                    chain_type_kwargs={"prompt": prompt},
-                    return_source_documents=True
-                )
-                logger.info("✅ 問答鏈設定成功 (LangChain 模式)")
-            else:
-                # 適配器模式 - 儲存 retriever 以供後續使用
-                self.retriever = retriever
-                logger.info("✅ 檢索器設定成功 (適配器模式)")
+            # 儲存 retriever 以供 Puter.js 查詢使用
+            self.retriever = retriever
+            logger.info("✅ 檢索器設定成功 (Puter.js 模式)")
             
             return True
             
