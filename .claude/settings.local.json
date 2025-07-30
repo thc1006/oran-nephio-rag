@@ -22,7 +22,8 @@
       "Bash(dir:*)",
       "Bash(docker:*)",
       "Bash(cp:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(dos2unix:*)"
     ],
     "deny": []
   }

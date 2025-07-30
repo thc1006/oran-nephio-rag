@@ -43,14 +43,28 @@ security_check() {
         exit 1
     fi
     
-    # 檢查敏感環境變數
-    local required_vars=("ANTHROPIC_API_KEY" "SECRET_KEY")
+    # 檢查必要環境變數 (Puter.js模式不需要ANTHROPIC_API_KEY)
+    local required_vars=("SECRET_KEY")
     for var in "${required_vars[@]}"; do
         if [[ -z "${!var}" ]]; then
             log_error "生產環境必須設定 ${var}"
             exit 1
         fi
     done
+    
+    # 檢查API模式設定
+    if [[ "${API_MODE}" == "browser" ]]; then
+        log_info "使用Puter.js瀏覽器模式 - 不需要ANTHROPIC_API_KEY"
+        local browser_vars=("PUTER_MODEL" "BROWSER_HEADLESS")
+        for var in "${browser_vars[@]}"; do
+            if [[ -z "${!var}" ]]; then
+                log_warn "瀏覽器模式建議設定 ${var}"
+            fi
+        done
+    else
+        log_error "未知的API模式: ${API_MODE}"
+        exit 1
+    fi
     
     # 檢查敏感文件權限
     local sensitive_files=(".env")
@@ -279,9 +293,9 @@ else:
         # 創建WSGI應用
         cat > /tmp/wsgi.py << 'EOF'
 import sys
+import os
 sys.path.insert(0, '/app')
 
-from src.oran_nephio_rag import ORANNephioRAG, quick_query
 from flask import Flask, request, jsonify
 import logging
 
@@ -291,17 +305,28 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 初始化RAG系統
+# 檢查API模式並初始化RAG系統
+api_mode = os.getenv('API_MODE', 'browser')
 rag_system = None
 
 def init_rag():
     global rag_system
     if rag_system is None:
         try:
-            rag_system = ORANNephioRAG()
-            rag_system.load_existing_database()
-            rag_system.setup_qa_chain()
-            logger.info("RAG系統初始化成功")
+            if api_mode == 'browser':
+                # 使用Puter.js集成
+                from src.puter_integration import PuterRAGManager
+                puter_model = os.getenv('PUTER_MODEL', 'claude-sonnet-4')
+                headless = os.getenv('BROWSER_HEADLESS', 'true').lower() == 'true'
+                rag_system = PuterRAGManager(model=puter_model, headless=headless)
+                logger.info(f"Puter.js RAG系統初始化成功 - 模型: {puter_model}")
+            else:
+                # 後備方案 - 使用標準RAG系統
+                from src.oran_nephio_rag import ORANNephioRAG
+                rag_system = ORANNephioRAG()
+                rag_system.load_existing_database()
+                rag_system.setup_qa_chain()
+                logger.info("標準RAG系統初始化成功")
         except Exception as e:
             logger.error(f"RAG系統初始化失敗: {e}")
             raise
@@ -311,7 +336,22 @@ def health():
     try:
         if rag_system is None:
             init_rag()
-        return jsonify({"status": "healthy", "service": "oran-nephio-rag"})
+        
+        # 獲取系統狀態
+        if hasattr(rag_system, 'get_status'):
+            status = rag_system.get_status()
+            return jsonify({
+                "status": "healthy", 
+                "service": "oran-nephio-rag",
+                "api_mode": api_mode,
+                "details": status
+            })
+        else:
+            return jsonify({
+                "status": "healthy", 
+                "service": "oran-nephio-rag",
+                "api_mode": api_mode
+            })
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
@@ -325,11 +365,16 @@ def query():
         if not data or 'question' not in data:
             return jsonify({"error": "Missing question"}), 400
         
+        # 執行查詢
         result = rag_system.query(data['question'])
-        return jsonify(result)
+        return jsonify({
+            "success": True,
+            "api_mode": api_mode,
+            "result": result
+        })
     except Exception as e:
         logger.error(f"查詢錯誤: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e), "api_mode": api_mode}), 500
 
 if __name__ == "__main__":
     init_rag()
