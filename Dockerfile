@@ -23,13 +23,16 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd -r ${APP_GROUP} && \
     useradd -r -g ${APP_GROUP} -d ${APP_HOME} -s /bin/bash ${APP_USER}
 
-# 安裝系統依賴 (包含瀏覽器自動化支援)
+# 安裝系統依賴 (包含 lxml 和瀏覽器自動化支援)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
     libssl-dev \
     libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
     gcc \
     g++ \
     make \
