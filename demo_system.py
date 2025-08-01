@@ -20,8 +20,8 @@ def demo_system():
         config = Config()
         print(f"   ✅ API Mode: {config.API_MODE}")
         print(f"   ✅ Vector DB: {config.VECTOR_DB_PATH}")
-        print(f"   ✅ Model: {config.CLAUDE_MODEL}")
-        print(f"   ✅ Log Level: {config.LOG_LEVEL}")
+        print(f"   ✅ Model: {getattr(config, 'CLAUDE_MODEL', 'claude-3-sonnet-20240229')}")
+        print(f"   ✅ Log Level: {getattr(config, 'LOG_LEVEL', 'INFO')}")
     except Exception as e:
         print(f"   ❌ Config error: {e}")
         return False
