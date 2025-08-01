@@ -5,7 +5,7 @@ ARG PYTHON_VERSION=3.11
 FROM python:${PYTHON_VERSION}-slim as base
 
 # 設定維護者資訊
-LABEL maintainer="thc1006@example.com"
+LABEL maintainer="hctsai@linux.com"
 LABEL description="O-RAN × Nephio RAG System - Intelligent Retrieval-Augmented Generation"
 LABEL version="1.0.0"
 
@@ -23,43 +23,55 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd -r ${APP_GROUP} && \
     useradd -r -g ${APP_GROUP} -d ${APP_HOME} -s /bin/bash ${APP_USER}
 
-# 安裝系統依賴
+# 安裝系統依賴 (包含瀏覽器自動化支援)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
-    libpq-dev \
     libssl-dev \
     libffi-dev \
-    libjpeg-dev \
-    libpng-dev \
-    zlib1g-dev \
     gcc \
     g++ \
     make \
     pkg-config \
+    wget \
+    gnupg \
+    unzip \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 安裝 Chrome 瀏覽器 (for browser automation)
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-chrome-stable \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # 設定工作目錄
 WORKDIR ${APP_HOME}
 
-# 複製requirements文件
-COPY requirements.txt ./
+# 複製requirements文件 (使用constraint-compliant版本)
+COPY requirements-fixed.txt ./requirements.txt
 
-# 安裝Python依賴
+# 安裝Python依賴 (瀏覽器自動化版本)
 RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # 複製應用程式碼
 COPY . .
 
-# 創建必要目錄
+# 創建必要目錄 (瀏覽器自動化版本)
 RUN mkdir -p logs \
     oran_nephio_vectordb \
-    embeddings_cache \
     data \
     && chown -R ${APP_USER}:${APP_GROUP} ${APP_HOME}
+
+# 設定瀏覽器環境變數
+ENV DISPLAY=:99 \
+    CHROME_BIN=/usr/bin/google-chrome \
+    CHROME_PATH=/usr/bin/google-chrome
 
 # 複製啟動腳本
 COPY docker/scripts/entrypoint.sh /entrypoint.sh
