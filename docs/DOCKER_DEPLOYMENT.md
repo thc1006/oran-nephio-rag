@@ -9,8 +9,8 @@
 - **Docker**: 20.10+ 
 - **Docker Compose**: 2.0+
 - **作業系統**: Linux, macOS, Windows 10/11 with WSL2
-- **記憶體**: 最少 8GB，建議 16GB+
-- **儲存空間**: 最少 10GB 可用空間
+- **記憶體**: 最少 4GB，建議 8GB+
+- **儲存空間**: 最少 5GB 可用空間
 
 ### 環境準備
 
@@ -36,7 +36,7 @@ cd oran-nephio-rag
 # 複製環境變數檔案
 cp .env.example .env
 
-# 編輯環境變數 (必須設定 ANTHROPIC_API_KEY)
+# 編輯環境變數
 nano .env
 
 # 啟動開發環境
@@ -80,7 +80,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - API_MODE=browser
       - VECTOR_DB_PATH=/app/data/vectordb
       - LOG_LEVEL=DEBUG
     volumes:
@@ -129,8 +129,7 @@ services:
     ports:
       - "80:8000"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-3-sonnet-20240229}
+      - API_MODE=browser
       - VECTOR_DB_PATH=/app/data/vectordb
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - WORKERS=${WORKERS:-4}
@@ -199,22 +198,30 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
+# Install system dependencies for browser automation
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    wget \
+    gnupg \
+    unzip \
+    # Chrome dependencies
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements.txt requirements-dev.txt ./
+COPY requirements.txt ./
 
 # Development stage
 FROM base as development
-RUN pip install -r requirements-dev.txt
+RUN pip install -r requirements.txt
 COPY . .
 EXPOSE 8000
 CMD ["python", "main.py"]
@@ -231,58 +238,6 @@ EXPOSE 8000
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "main:app"]
 ```
 
-### Dockerfile.production (最佳化版本)
-
-```dockerfile
-FROM python:3.11-slim as builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
-
-# Production image
-FROM python:3.11-slim
-
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash appuser
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy wheels and install
-COPY --from=builder /app/wheels /wheels
-COPY requirements.txt .
-RUN pip install --no-cache /wheels/*
-
-# Copy application code
-COPY --chown=appuser:appuser src/ ./src/
-COPY --chown=appuser:appuser main.py pyproject.toml ./
-
-# Create necessary directories
-RUN mkdir -p /app/logs /app/data && \
-    chown -R appuser:appuser /app
-
-USER appuser
-
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "main:app"]
-```
-
 ## 🔄 部署流程詳解
 
 ### 1. 環境變數配置
@@ -290,13 +245,8 @@ CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "
 建立 `.env` 檔案：
 
 ```bash
-# API 配置
-ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
-
-# 模型配置
-CLAUDE_MODEL=claude-3-sonnet-20240229
-CLAUDE_MAX_TOKENS=4000
-CLAUDE_TEMPERATURE=0.1
+# API 配置 - 使用瀏覽器模式
+API_MODE=browser
 
 # 資料庫配置
 VECTOR_DB_PATH=/app/data/vectordb
@@ -309,6 +259,10 @@ WORKERS=4
 # 監控配置
 ENABLE_MONITORING=true
 METRICS_PORT=9090
+
+# 瀏覽器配置
+CHROME_HEADLESS=true
+CHROME_NO_SANDBOX=true
 ```
 
 ### 2. 資料持久化設定
@@ -323,18 +277,7 @@ chmod 755 ./data
 chmod 644 ./ssl/*  # SSL 憑證檔案
 ```
 
-### 3. 網路配置
-
-```bash
-# 建立專用網路
-docker network create oran-rag-network
-
-# 檢查網路
-docker network ls
-docker network inspect oran-rag-network
-```
-
-### 4. 服務部署步驟
+### 3. 服務部署步驟
 
 ```bash
 # 1. 拉取最新映像
@@ -374,6 +317,7 @@ services:
     build: .
     environment:
       - ENABLE_MONITORING=true
+      - API_MODE=browser
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:14268
     depends_on:
       - prometheus
@@ -451,11 +395,11 @@ docker-compose ps
 # 檢查容器資源使用
 docker stats
 
-# 檢查網路連接
-docker-compose exec oran-rag-app curl http://redis:6379
-
 # 檢查健康狀態
 docker-compose exec oran-rag-app curl http://localhost:8000/health
+
+# 檢查瀏覽器狀態
+docker-compose exec oran-rag-app ps aux | grep chrome
 ```
 
 ### 備份和恢復
@@ -490,54 +434,15 @@ services:
       - MAX_REQUESTS_JITTER=100
 ```
 
-### 快取配置
+### 瀏覽器優化
 
 ```yaml
-  redis:
-    image: redis:7-alpine
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-```
-
-## 🔒 安全配置
-
-### SSL/TLS 設定
-
-```bash
-# 生成自簽憑證 (開發用)
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout ./ssl/private.key \
-    -out ./ssl/certificate.crt
-
-# 生產環境使用 Let's Encrypt
-certbot certonly --webroot -w /var/www/html -d your-domain.com
-```
-
-### Nginx 安全配置
-
-```nginx
-# docker/nginx/prod.conf
-server {
-    listen 443 ssl;
-    server_name your-domain.com;
-    
-    ssl_certificate /etc/nginx/ssl/certificate.crt;
-    ssl_certificate_key /etc/nginx/ssl/private.key;
-    
-    # 安全標頭
-    add_header X-Frame-Options DENY;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    
-    location / {
-        proxy_pass http://oran-rag-app:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+  oran-rag-app:
+    environment:
+      - CHROME_HEADLESS=true
+      - CHROME_NO_SANDBOX=true
+      - CHROME_DISABLE_DEV_SHM_USAGE=true
+      - CHROME_WINDOW_SIZE=1920,1080
 ```
 
 ## 🚨 故障排除
@@ -556,23 +461,25 @@ server {
    docker-compose build --no-cache
    ```
 
-2. **記憶體不足**
+2. **瀏覽器自動化失敗**
+   ```bash
+   # 檢查 Chrome 安裝
+   docker-compose exec oran-rag-app google-chrome --version
+   
+   # 檢查 Chrome 權限
+   docker-compose exec oran-rag-app ls -la /usr/bin/google-chrome
+   
+   # 測試瀏覽器啟動
+   docker-compose exec oran-rag-app python -c "from selenium import webdriver; from selenium.webdriver.chrome.options import Options; options = Options(); options.add_argument('--headless'); driver = webdriver.Chrome(options=options); print('Browser test OK'); driver.quit()"
+   ```
+
+3. **記憶體不足**
    ```bash
    # 檢查資源使用
    docker stats
    
    # 調整記憶體限制
    # 在 docker-compose.yml 中修改 memory 設定
-   ```
-
-3. **網路連接問題**
-   ```bash
-   # 檢查網路
-   docker network ls
-   docker network inspect oran-rag-network
-   
-   # 測試連接
-   docker-compose exec oran-rag-app ping redis
    ```
 
 ### 日誌分析
@@ -584,8 +491,8 @@ docker-compose logs -f --tail=100 oran-rag-app
 # 查看系統日誌
 docker-compose exec oran-rag-app tail -f /app/logs/oran_nephio_rag.log
 
-# 查看 Nginx 日誌
-docker-compose logs nginx
+# 查看瀏覽器日誌
+docker-compose exec oran-rag-app tail -f /app/logs/browser.log
 ```
 
 ## 📈 擴展和集群部署
@@ -602,37 +509,6 @@ docker stack deploy -c docker-compose.prod.yml oran-rag-stack
 # 檢查服務
 docker service ls
 docker service ps oran-rag-stack_oran-rag-app
-```
-
-### Kubernetes 部署
-
-```yaml
-# k8s/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: oran-rag-app
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: oran-rag-app
-  template:
-    metadata:
-      labels:
-        app: oran-rag-app
-    spec:
-      containers:
-      - name: app
-        image: oran-rag:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: oran-rag-secrets
-              key: anthropic-api-key
 ```
 
 ## 🔄 CI/CD 整合
@@ -672,7 +548,7 @@ jobs:
 
 1. 檢查本指南的故障排除章節
 2. 查看 [GitHub Issues](https://github.com/company/oran-nephio-rag/issues)
-3. 聯繫開發團隊: dev-team@company.com
+3. 聯繫開發團隊: hctsai@linux.com
 
 ---
 
