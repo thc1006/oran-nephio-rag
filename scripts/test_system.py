@@ -34,14 +34,16 @@ def test_python_environment() -> List[Tuple[str, bool, str]]:
     else:
         tests.append(("Python 版本", False, f"{python_version.major}.{python_version.minor} (需要 3.10+)"))
     
-    # 測試環境變數
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if api_key and len(api_key) > 10:
-        tests.append(("ANTHROPIC_API_KEY", True, "已設定且格式正確"))
-    elif api_key:
-        tests.append(("ANTHROPIC_API_KEY", False, "已設定但格式可能不正確"))
+    # 測試環境變數 (Browser Mode)
+    api_mode = os.getenv("API_MODE", "browser")
+    if api_mode == "browser":
+        tests.append(("API_MODE", True, "已設定為瀏覽器自動化模式"))
     else:
-        tests.append(("ANTHROPIC_API_KEY", False, "未設定"))
+        tests.append(("API_MODE", False, f"設定為 {api_mode}，建議使用 browser 模式"))
+    
+    # 測試瀏覽器設定
+    puter_model = os.getenv("PUTER_MODEL", "claude-sonnet-4")
+    tests.append(("PUTER_MODEL", True, f"已設定為 {puter_model}"))
     
     return tests
 
@@ -49,13 +51,13 @@ def test_package_imports() -> List[Tuple[str, bool, str]]:
     """測試套件導入"""
     tests = []
     
-    # 測試核心套件
+    # 測試核心套件 (Browser Mode)
     packages = [
         ("langchain", "LangChain 框架"),
         ("langchain_community", "LangChain 社群套件"),
-        ("langchain_anthropic", "LangChain Anthropic 整合"),
         ("chromadb", "向量資料庫"),
-        ("sentence_transformers", "嵌入模型"),
+        ("selenium", "瀏覽器自動化"),
+        ("webdriver_manager", "WebDriver 管理"),
         ("requests", "HTTP 客戶端"),
         ("beautifulsoup4", "HTML 解析器"),
         ("dotenv", "環境變數"),
