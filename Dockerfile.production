@@ -18,6 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 設定工作目錄
@@ -28,7 +33,7 @@ COPY requirements.txt .
 
 # 建置Python wheel包
 RUN pip install --upgrade pip setuptools wheel && \
-    pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt
+    pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
 # =============================================================================
 # 生產環境最終階段
@@ -56,12 +61,47 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd -r ${APP_GROUP} && \
     useradd -r -g ${APP_GROUP} -d ${APP_HOME} -s /sbin/nologin ${APP_USER}
 
-# 安裝運行時依賴
+# 安裝運行時依賴 (包含 Chrome/Selenium 支援)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    wget \
+    gnupg \
+    unzip \
+    # Chrome dependencies
+    libnss3 \
+    libxss1 \
+    libappindicator3-1 \
+    gconf-service \
+    libnspr4 \
+    libpango1.0-0 \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxkbcommon0 \
+    libgtk-3-0 \
+    libdbus-glib-1-2 \
+    libasound2-dev \
+    # Runtime dependencies for lxml and other packages
+    libxml2 \
+    libxslt1.1 \
+    zlib1g \
+    libjpeg62-turbo \
+    libpng16-16 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+# 安裝 Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && \
+    apt-get install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
 
 # 設定工作目錄
 WORKDIR ${APP_HOME}
