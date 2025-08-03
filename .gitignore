@@ -30,3 +30,11 @@ logs/
 .mcp
 oran_nephio_vectordb/
 .claude
+
+# Cache directories
+embeddings_cache/
+__pycache__/
+
+# Generated artifacts
+verification_output.txt
+verification_results.json

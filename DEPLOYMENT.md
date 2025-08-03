@@ -1,320 +1,1323 @@
-# 🚀 GitHub Pages 網站部署指南
+# O-RAN × Nephio RAG System - Production Deployment Guide
 
-本指南將協助您將 O-RAN × Nephio RAG 專案網站部署至 GitHub Pages，以獲得全球觸及和最佳 SEO 效果。
+This comprehensive guide covers all aspects of deploying the O-RAN × Nephio RAG System to production environments, from local development to enterprise-scale cloud deployments.
 
-## 📋 部署前檢查清單
+## Table of Contents
 
-### 必要條件
-- [x] GitHub 帳號
-- [x] 專案代碼庫 (repository)
-- [x] 基本的 Git 操作知識
+- [Overview](#overview)
+- [Pre-Deployment Checklist](#pre-deployment-checklist)
+- [Environment Setup](#environment-setup)
+- [Local Development](#local-development)
+- [Docker Deployment](#docker-deployment)
+- [Cloud Deployment](#cloud-deployment)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [Monitoring & Observability](#monitoring--observability)
+- [Security Considerations](#security-considerations)
+- [Performance Optimization](#performance-optimization)
+- [Backup & Recovery](#backup--recovery)
+- [Troubleshooting](#troubleshooting)
+- [Maintenance](#maintenance)
 
-### 檔案結構確認
+## Overview
+
+The O-RAN × Nephio RAG System supports multiple deployment architectures:
+
+- **Single Node**: Development and testing environments
+- **Docker Compose**: Small to medium production deployments
+- **Kubernetes**: Large-scale, cloud-native deployments
+- **Hybrid Cloud**: Multi-cloud and edge deployments
+
+### Deployment Architecture
+
 ```
-oran-nephio-rag/
-├── _config.yml                 # Jekyll 配置
-├── _layouts/
-│   └── default.html            # 預設版面
-├── _includes/
-│   └── head.html              # HTML head 部分
-├── _pages/
-│   └── documentation.md        # 文檔頁面
-├── assets/
-│   ├── styles/
-│   │   └── main.css           # 主要樣式
-│   ├── scripts/
-│   │   └── main.js            # JavaScript 功能
-│   └── images/                # 圖片資源
-├── .github/
-│   └── workflows/
-│       └── pages.yml          # GitHub Actions 工作流程
-├── index.html                 # 主頁面
-├── robots.txt                 # 搜索引擎爬蟲指令
-├── sitemap.xml               # 網站地圖
-├── site.webmanifest          # PWA 清單
-├── sw.js                     # Service Worker
-├── Gemfile                   # Ruby 依賴
-└── DEPLOYMENT.md             # 本部署指南
-```
-
-## 🔧 部署步驟
-
-### 1. 啟用 GitHub Pages
-
-1. 進入您的 GitHub 專案頁面
-2. 點選 **Settings** 標籤
-3. 滾動至 **Pages** 部分
-4. 在 **Source** 下選擇 **GitHub Actions**
-5. 點選 **Save**
-
-### 2. 配置自訂網域 (可選)
-
-如果您有自訂網域：
-
-1. 在 **Pages** 設定中的 **Custom domain** 輸入您的網域
-2. 勾選 **Enforce HTTPS**
-3. 在您的網域 DNS 設定中添加 CNAME 記錄：
-   ```
-   www.yourdomain.com -> username.github.io
-   ```
-
-### 3. 更新配置文件
-
-編輯 `_config.yml` 檔案，更新以下設定：
-
-```yaml
-# 基本資訊
-title: "您的專案標題"
-description: "您的專案描述"
-url: "https://yourusername.github.io"  # 更新為您的 GitHub Pages URL
-baseurl: "/your-repo-name"             # 更新為您的專案名稱
-
-# 作者資訊
-author:
-  name: "您的名字"
-  email: "your-email@example.com"
-
-# GitHub 資訊
-github_username: yourusername
-repository: your-repo-name
-github:
-  repository_url: "https://github.com/yourusername/your-repo-name"
+┌─────────────────────────────────────────────────────────┐
+│                    Load Balancer                        │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │   App Pod   │  │   App Pod   │  │   App Pod   │     │
+│  │             │  │             │  │             │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │   Redis     │  │  Vector DB  │  │ Monitoring  │     │
+│  │  Cluster    │  │   Storage   │  │    Stack    │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### 4. 設定 Google Analytics (可選)
+## Pre-Deployment Checklist
 
-1. 建立 Google Analytics 4 屬性
-2. 取得追蹤 ID
-3. 在 `_config.yml` 中新增：
-   ```yaml
-   google_analytics: G-XXXXXXXXXX
-   ```
+### Infrastructure Requirements
 
-### 5. 提交並推送變更
+#### Minimum Resources (Single Instance)
+- **CPU**: 2 cores (x86_64 or ARM64)
+- **Memory**: 4GB RAM
+- **Storage**: 10GB available disk space
+- **Network**: 1Gbps bandwidth recommended
+
+#### Production Resources (Clustered)
+- **CPU**: 8+ cores per node
+- **Memory**: 16GB+ RAM per node
+- **Storage**: 100GB+ SSD storage
+- **Network**: 10Gbps bandwidth
+- **Load Balancer**: External or cloud-native
+
+#### High Availability Setup
+- **Nodes**: 3+ application instances
+- **Database**: Redis cluster with sentinel
+- **Storage**: Distributed vector database
+- **Monitoring**: Full observability stack
+
+### Software Prerequisites
 
 ```bash
-git add .
-git commit -m "feat: 新增 GitHub Pages 網站設定"
-git push origin main
+# Container Runtime
+docker --version                # Docker 20.10+
+docker-compose --version        # Docker Compose 2.0+
+
+# Kubernetes (if applicable)
+kubectl version --client        # kubectl 1.25+
+helm version                    # Helm 3.8+
+
+# Monitoring Tools
+curl --version                  # Health check tools
+wget --version                  # Download utilities
 ```
 
-### 6. 檢查部署狀態
+### Network Requirements
 
-1. 前往 **Actions** 標籤
-2. 查看 "Build and Deploy GitHub Pages" 工作流程
-3. 等待部署完成 (通常需要 2-5 分鐘)
+#### Inbound Ports
+- **8000**: Main application HTTP
+- **8443**: HTTPS (if SSL termination at app level)
+- **9090**: Prometheus metrics (internal)
+- **6379**: Redis (internal cluster only)
 
-## 🌐 SEO 優化設定
+#### Outbound Access
+- **443**: HTTPS for document fetching
+- **80**: HTTP for document sources
+- **DNS**: For domain resolution
 
-### Google Search Console
+## Environment Setup
 
-1. 前往 [Google Search Console](https://search.google.com/search-console/)
-2. 新增您的網站
-3. 驗證所有權 (使用 HTML 標籤方法)
-4. 提交 sitemap.xml：`https://yourusername.github.io/your-repo-name/sitemap.xml`
+### Environment Configuration Template
 
-### Bing Webmaster Tools
+Create a production `.env` file:
 
-1. 前往 [Bing Webmaster Tools](https://www.bing.com/webmasters/)
-2. 新增並驗證您的網站
-3. 提交 sitemap.xml
+```bash
+# Production Environment Configuration
+APP_ENV=production
+DEBUG=false
 
-### 社交媒體優化
+# API Configuration
+API_MODE=browser
+PUTER_MODEL=claude-sonnet-4
+BROWSER_HEADLESS=true
+BROWSER_TIMEOUT=120
+BROWSER_WAIT_TIME=10
 
-1. 建立高品質的 Open Graph 圖片 (1200x630px)
-2. 將圖片放置於 `assets/images/og-image.png`
-3. 測試社交媒體分享：
-   - Facebook: [Sharing Debugger](https://developers.facebook.com/tools/debug/)
-   - Twitter: [Card Validator](https://cards-dev.twitter.com/validator)
-   - LinkedIn: [Post Inspector](https://www.linkedin.com/post-inspector/)
+# Database Configuration
+VECTOR_DB_PATH=/app/data/vectordb
+COLLECTION_NAME=oran_nephio_official
+EMBEDDINGS_CACHE_PATH=/app/data/embeddings
 
-## 📊 效能監控設定
+# Redis Configuration
+REDIS_HOST=redis-master
+REDIS_PORT=6379
+REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_SENTINEL_PASSWORD=${REDIS_SENTINEL_PASSWORD}
 
-### Google PageSpeed Insights
+# Performance Settings
+MAX_TOKENS=4000
+TEMPERATURE=0.1
+CHUNK_SIZE=1024
+CHUNK_OVERLAP=200
+RETRIEVER_K=6
+RETRIEVER_FETCH_K=15
 
-定期檢查網站效能：
-- 桌面版：目標 95+ 分
-- 行動版：目標 90+ 分
+# Scaling Configuration
+WORKERS=4
+WORKER_TIMEOUT=120
+MAX_REQUESTS=1000
+MAX_REQUESTS_JITTER=50
 
-### Core Web Vitals
+# Security Settings
+SECRET_KEY=${SECRET_KEY}
+VERIFY_SSL=true
+CORS_ORIGINS=["https://yourdomain.com"]
 
-監控重要指標：
-- **LCP** (Largest Contentful Paint): < 2.5s
-- **FID** (First Input Delay): < 100ms  
-- **CLS** (Cumulative Layout Shift): < 0.1
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FILE=/app/logs/oran_nephio_rag.log
+STRUCTURED_LOGGING=true
 
-### GTmetrix
+# Monitoring Configuration
+PROMETHEUS_METRICS_PORT=9100
+ENABLE_METRICS=true
+HEALTH_CHECK_INTERVAL=30
 
-設定定期監控和警報：
-1. 註冊 [GTmetrix](https://gtmetrix.com/) 帳號
-2. 新增網站監控
-3. 設定效能警報
-
-## 🔍 國際化設定
-
-### 多語言支援
-
-如需支援多語言：
-
-1. 建立語言特定目錄：
-   ```
-   /en/           # 英文版本
-   /zh-tw/        # 繁體中文版本
-   /ja/           # 日文版本
-   ```
-
-2. 更新 `_config.yml`：
-   ```yaml
-   plugins:
-     - jekyll-multiple-languages-plugin
-   
-   languages: ["zh-tw", "en", "ja"]
-   default_lang: "zh-tw"
-   exclude_from_localizations: ["assets", "admin"]
-   ```
-
-### hreflang 標籤
-
-確保每個頁面都有正確的 hreflang 標籤：
-```html
-<link rel="alternate" hreflang="zh-tw" href="https://example.com/" />
-<link rel="alternate" hreflang="en" href="https://example.com/en/" />
-<link rel="alternate" hreflang="x-default" href="https://example.com/" />
+# Data Persistence
+DATA_RETENTION_DAYS=30
+BACKUP_ENABLED=true
+BACKUP_SCHEDULE="0 2 * * *"
 ```
 
-## 🚀 進階優化
+### Secrets Management
 
-### CDN 設定
+#### Using Docker Secrets
+```bash
+# Create secrets
+echo "your-secret-key" | docker secret create app_secret_key -
+echo "your-redis-password" | docker secret create redis_password -
 
-使用 Cloudflare 進行全球加速：
-
-1. 註冊 [Cloudflare](https://www.cloudflare.com/) 帳號
-2. 新增您的網域
-3. 更新 DNS 名稱伺服器
-4. 啟用以下功能：
-   - Brotli 壓縮
-   - 自動縮小化
-   - 瀏覽器快取 TTL
-
-### 安全標頭
-
-在 Cloudflare 或您的伺服器設定中新增安全標頭：
-```
-Content-Security-Policy: default-src 'self' https:
-X-Frame-Options: DENY
-X-Content-Type-Options: nosniff
-Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: camera=(), microphone=(), geolocation=()
+# Reference in docker-compose.yml
+secrets:
+  - app_secret_key
+  - redis_password
 ```
 
-### PWA 優化
+#### Using Kubernetes Secrets
+```bash
+# Create secret
+kubectl create secret generic oran-rag-secrets \
+  --from-literal=secret-key=your-secret-key \
+  --from-literal=redis-password=your-redis-password
 
-確保 Progressive Web App 功能正常：
+# Apply secret in manifests
+env:
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: oran-rag-secrets
+        key: secret-key
+```
 
-1. 測試 Service Worker 運作
-2. 驗證 Web App Manifest
-3. 使用 Lighthouse 檢查 PWA 分數
-4. 測試離線功能
+## Local Development
 
-## 📈 分析與監控
+### Quick Development Setup
 
-### 流量分析工具
+```bash
+# 1. Clone and setup
+git clone https://github.com/thc1006/oran-nephio-rag.git
+cd oran-nephio-rag
 
-1. **Google Analytics 4**
-   - 設定目標轉換
-   - 監控使用者行為流程
-   - 追蹤自訂事件
+# 2. Create development environment
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+# or: venv\Scripts\activate  # Windows
 
-2. **Microsoft Clarity** (可選)
-   ```yaml
-   # _config.yml
-   microsoft_clarity: YOUR_CLARITY_ID
-   ```
+# 3. Install dependencies
+pip install -r requirements-dev.txt
+pip install -e .
 
-3. **Hotjar** (可選)
-   ```yaml
-   # _config.yml
-   hotjar_id: YOUR_HOTJAR_ID
-   ```
+# 4. Setup environment
+cp .env.example .env  # Create if missing
+echo "API_MODE=mock" >> .env
+echo "LOG_LEVEL=DEBUG" >> .env
 
-### 錯誤監控
+# 5. Initialize database
+python create_minimal_database.py
 
-設定前端錯誤監控：
-1. 註冊 [Sentry](https://sentry.io/) 帳號
-2. 建立新專案
-3. 在 JavaScript 中新增 Sentry SDK
+# 6. Run development server
+python main.py
+```
 
-## 🔧 故障排除
+### Development with Docker
 
-### 常見問題
+```bash
+# Development with hot reload
+docker-compose -f docker-compose.dev.yml up -d
 
-#### 1. 網站無法正常顯示
-- 檢查 GitHub Actions 是否成功執行
-- 確認 `_config.yml` 設定正確
-- 檢查檔案路徑和命名
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f oran-rag-app
 
-#### 2. CSS/JS 檔案載入失敗
-- 確認 `baseurl` 設定正確
-- 檢查檔案路徑是否使用相對 URL
-- 確認檔案存在於正確位置
+# Execute commands in container
+docker-compose -f docker-compose.dev.yml exec oran-rag-app python test_verification.py
+```
 
-#### 3. Jekyll 建置失敗
-- 檢查 `Gemfile` 依賴版本
-- 確認 YAML 語法正確
-- 查看 Actions 日誌錯誤訊息
+## Docker Deployment
 
-#### 4. 搜索引擎未收錄
-- 確認 `robots.txt` 允許爬蟲
-- 檢查 `sitemap.xml` 格式正確
-- 提交至 Google Search Console
+### Single Container Deployment
 
-### 除錯工具
+```bash
+# Build production image
+docker build -f Dockerfile.production -t oran-rag:prod .
 
-1. **GitHub Actions 日誌**
-   - 查看建置過程詳細資訊
-   - 識別錯誤和警告
+# Run single container
+docker run -d \
+  --name oran-rag-prod \
+  -p 8000:8000 \
+  -e API_MODE=browser \
+  -e LOG_LEVEL=INFO \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/logs:/app/logs \
+  --restart unless-stopped \
+  oran-rag:prod
+```
 
-2. **瀏覽器開發者工具**
-   - 檢查網路請求
-   - 除錯 JavaScript 錯誤
-   - 分析效能問題
+### Docker Compose Production
 
-3. **線上驗證工具**
-   - [W3C HTML Validator](https://validator.w3.org/)
-   - [CSS Validator](https://jigsaw.w3.org/css-validator/)
-   - [Schema Markup Validator](https://validator.schema.org/)
+#### Basic Production Setup
 
-## 📞 技術支援
+```bash
+# Create production environment file
+cat > .env.prod <<EOF
+# Basic production settings
+APP_ENV=production
+API_MODE=browser
+WORKERS=4
+REDIS_PASSWORD=$(openssl rand -base64 32)
+SECRET_KEY=$(openssl rand -base64 32)
+DATA_PATH=/opt/oran-rag/data
+LOG_PATH=/opt/oran-rag/logs
+VERSION=latest
+EOF
 
-如遇到部署問題，可透過以下方式尋求協助：
+# Deploy
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
 
-- 📧 **Email**: [dev-team@company.com](mailto:dev-team@company.com)
-- 🐛 **GitHub Issues**: [專案 Issues 頁面](https://github.com/company/oran-nephio-rag/issues)
-- 💬 **討論區**: [GitHub Discussions](https://github.com/company/oran-nephio-rag/discussions)
-- 📖 **官方文檔**: [Jekyll 官方文檔](https://jekyllrb.com/docs/)
+#### High Availability Setup
 
-## 🎯 成功指標
+```bash
+# Create HA environment
+cat > .env.ha <<EOF
+APP_REPLICAS=3
+REDIS_REPLICAS=2
+ENABLE_MONITORING=true
+GRAFANA_PASSWORD=$(openssl rand -base64 16)
+PROMETHEUS_RETENTION=30d
+EOF
 
-部署成功後，您的網站應該達到以下標準：
+# Deploy with monitoring
+docker-compose \
+  -f docker-compose.prod.yml \
+  -f docker-compose.monitoring.yml \
+  --env-file .env.ha \
+  up -d
+```
 
-### 技術指標
-- [x] 部署成功無錯誤
-- [x] 所有頁面正常載入
-- [x] 響應式設計在各裝置運作良好
-- [x] PWA 功能正常
+### Container Health Checks
 
-### SEO 指標
-- [x] Google PageSpeed Insights 分數 > 90
-- [x] 所有頁面有正確的 meta 標籤
-- [x] Sitemap 成功提交至搜索引擎
-- [x] Social media 分享預覽正常
+```bash
+# Check container health
+docker-compose ps
 
-### 使用者體驗
-- [x] 載入時間 < 3 秒
-- [x] 互動功能正常運作
-- [x] 導航直觀易用
-- [x] 多語言切換順暢
+# View health check logs
+docker inspect oran-rag-app --format='{{.State.Health.Status}}'
+
+# Manual health check
+curl -f http://localhost:8000/health || exit 1
+```
+
+## Cloud Deployment
+
+### Amazon Web Services (AWS)
+
+#### ECS Fargate Deployment
+
+```bash
+# 1. Build and push to ECR
+aws ecr get-login-password --region us-west-2 | \
+  docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-west-2.amazonaws.com
+
+docker build -t oran-rag .
+docker tag oran-rag:latest 123456789012.dkr.ecr.us-west-2.amazonaws.com/oran-rag:latest
+docker push 123456789012.dkr.ecr.us-west-2.amazonaws.com/oran-rag:latest
+
+# 2. Create ECS task definition
+cat > task-definition.json <<EOF
+{
+  "family": "oran-rag",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "oran-rag",
+      "image": "123456789012.dkr.ecr.us-west-2.amazonaws.com/oran-rag:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "API_MODE", "value": "browser"},
+        {"name": "LOG_LEVEL", "value": "INFO"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/oran-rag",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+# 3. Register and create service
+aws ecs register-task-definition --cli-input-json file://task-definition.json
+aws ecs create-service \
+  --cluster oran-rag-cluster \
+  --service-name oran-rag-service \
+  --task-definition oran-rag \
+  --desired-count 2 \
+  --launch-type FARGATE \
+  --network-configuration '{
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-12345", "subnet-67890"],
+      "securityGroups": ["sg-12345"],
+      "assignPublicIp": "ENABLED"
+    }
+  }'
+```
+
+#### EC2 with Auto Scaling
+
+```bash
+# User Data script for EC2 instances
+cat > user-data.sh <<'EOF'
+#!/bin/bash
+yum update -y
+yum install -y docker
+systemctl start docker
+systemctl enable docker
+usermod -a -G docker ec2-user
+
+# Install docker-compose
+curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+
+# Clone and deploy
+cd /opt
+git clone https://github.com/thc1006/oran-nephio-rag.git
+cd oran-nephio-rag
+echo "API_MODE=browser" > .env
+echo "WORKERS=4" >> .env
+docker-compose -f docker-compose.prod.yml up -d
+EOF
+```
+
+### Google Cloud Platform (GCP)
+
+#### Cloud Run Deployment
+
+```bash
+# 1. Build and push to GCR
+gcloud builds submit --tag gcr.io/PROJECT-ID/oran-rag
+
+# 2. Deploy to Cloud Run
+gcloud run deploy oran-rag \
+  --image gcr.io/PROJECT-ID/oran-rag \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --memory 2Gi \
+  --cpu 2 \
+  --concurrency 80 \
+  --max-instances 10 \
+  --set-env-vars API_MODE=browser,LOG_LEVEL=INFO \
+  --port 8000
+
+# 3. Setup custom domain
+gcloud run domain-mappings create \
+  --service oran-rag \
+  --domain api.yourdomain.com \
+  --region us-central1
+```
+
+#### GKE Deployment
+
+```yaml
+# gke-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oran-rag
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: oran-rag
+  template:
+    metadata:
+      labels:
+        app: oran-rag
+    spec:
+      containers:
+      - name: oran-rag
+        image: gcr.io/PROJECT-ID/oran-rag:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: API_MODE
+          value: "browser"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oran-rag-service
+spec:
+  selector:
+    app: oran-rag
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: LoadBalancer
+```
+
+### Microsoft Azure
+
+#### Container Instances
+
+```bash
+# Deploy to Azure Container Instances
+az container create \
+  --resource-group oran-rag-rg \
+  --name oran-rag \
+  --image your-registry/oran-rag:latest \
+  --dns-name-label oran-rag-unique \
+  --ports 8000 \
+  --environment-variables API_MODE=browser LOG_LEVEL=INFO \
+  --memory 2 \
+  --cpu 1
+```
+
+#### Azure Kubernetes Service (AKS)
+
+```bash
+# Create AKS cluster
+az aks create \
+  --resource-group oran-rag-rg \
+  --name oran-rag-aks \
+  --node-count 3 \
+  --node-vm-size Standard_D2s_v3 \
+  --enable-addons monitoring \
+  --generate-ssh-keys
+
+# Get credentials and deploy
+az aks get-credentials --resource-group oran-rag-rg --name oran-rag-aks
+kubectl apply -f k8s/
+```
+
+## Kubernetes Deployment
+
+### Namespace and RBAC
+
+```yaml
+# namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oran-rag
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oran-rag
+  namespace: oran-rag
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: oran-rag
+  name: oran-rag-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: oran-rag-binding
+  namespace: oran-rag
+subjects:
+- kind: ServiceAccount
+  name: oran-rag
+  namespace: oran-rag
+roleRef:
+  kind: Role
+  name: oran-rag-role
+  apiGroup: rbac.authorization.k8s.io
+```
+
+### Application Deployment
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oran-rag
+  namespace: oran-rag
+  labels:
+    app: oran-rag
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: oran-rag
+  template:
+    metadata:
+      labels:
+        app: oran-rag
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: oran-rag
+      containers:
+      - name: oran-rag
+        image: oran-rag:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 9100
+          name: metrics
+        env:
+        - name: API_MODE
+          value: "browser"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: oran-rag-secrets
+              key: secret-key
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: oran-rag-data-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: oran-rag-logs-pvc
+```
+
+### Services and Ingress
+
+```yaml
+# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oran-rag-service
+  namespace: oran-rag
+  labels:
+    app: oran-rag
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  - port: 9100
+    targetPort: 9100
+    protocol: TCP
+    name: metrics
+  selector:
+    app: oran-rag
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oran-rag-ingress
+  namespace: oran-rag
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  tls:
+  - hosts:
+    - api.yourdomain.com
+    secretName: oran-rag-tls
+  rules:
+  - host: api.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: oran-rag-service
+            port:
+              number: 80
+```
+
+### Persistent Storage
+
+```yaml
+# storage.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oran-rag-data-pvc
+  namespace: oran-rag
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oran-rag-logs-pvc
+  namespace: oran-rag
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+### Helm Chart Deployment
+
+```bash
+# Install with Helm
+helm repo add oran-rag https://helm.yourdomain.com
+helm repo update
+
+# Install with custom values
+cat > values-prod.yaml <<EOF
+image:
+  tag: "v1.0.0"
+replicaCount: 3
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "2Gi"
+    cpu: "1000m"
+ingress:
+  enabled: true
+  hostname: api.yourdomain.com
+  tls: true
+redis:
+  enabled: true
+  auth:
+    enabled: true
+monitoring:
+  enabled: true
+EOF
+
+helm install oran-rag oran-rag/oran-rag \
+  --namespace oran-rag \
+  --create-namespace \
+  --values values-prod.yaml
+```
+
+## Monitoring & Observability
+
+### Prometheus Configuration
+
+```yaml
+# prometheus-config.yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  - job_name: 'oran-rag'
+    static_configs:
+      - targets: ['oran-rag-service:9100']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+```
+
+### Grafana Dashboards
+
+```json
+{
+  "dashboard": {
+    "title": "O-RAN Nephio RAG System",
+    "panels": [
+      {
+        "title": "Query Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(rag_query_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          }
+        ]
+      },
+      {
+        "title": "Active Queries",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rag_active_queries",
+            "legendFormat": "Active Queries"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(rag_errors_total[5m])",
+            "legendFormat": "Error Rate"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Logging Configuration
+
+```yaml
+# fluent-bit-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name              tail
+        Path              /app/logs/*.log
+        Parser            json
+        Tag               oran-rag.*
+        Refresh_Interval  5
+
+    [OUTPUT]
+        Name  es
+        Match *
+        Host  elasticsearch
+        Port  9200
+        Index oran-rag-logs
+        Type  _doc
+```
+
+### Health Check Endpoints
+
+```python
+# Health check implementation
+@app.get("/health")
+async def health_check():
+    """Basic health check"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0"
+    }
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness check for Kubernetes"""
+    checks = {
+        "vector_db": check_vector_db_connection(),
+        "redis": check_redis_connection(),
+        "model": check_model_availability()
+    }
+    
+    if all(checks.values()):
+        return {"status": "ready", "checks": checks}
+    else:
+        raise HTTPException(status_code=503, detail="Service not ready")
+```
+
+## Security Considerations
+
+### Authentication & Authorization
+
+```python
+# JWT Authentication
+from fastapi_users import FastAPIUsers
+from fastapi_users.authentication import JWTAuthentication
+
+jwt_authentication = JWTAuthentication(
+    secret=settings.SECRET_KEY,
+    lifetime_seconds=3600,
+    tokenUrl="auth/jwt/login",
+)
+
+app.include_router(
+    fastapi_users.get_auth_router(jwt_authentication),
+    prefix="/auth/jwt",
+    tags=["auth"],
+)
+```
+
+### Network Security
+
+```yaml
+# Network Policy for Kubernetes
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oran-rag-netpol
+  namespace: oran-rag
+spec:
+  podSelector:
+    matchLabels:
+      app: oran-rag
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 53   # DNS
+    - protocol: UDP
+      port: 53   # DNS
+```
+
+### SSL/TLS Configuration
+
+```nginx
+# nginx SSL configuration
+server {
+    listen 443 ssl http2;
+    server_name api.yourdomain.com;
+
+    ssl_certificate /etc/ssl/certs/yourdomain.com.crt;
+    ssl_certificate_key /etc/ssl/private/yourdomain.com.key;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
+    ssl_prefer_server_ciphers off;
+    ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+    location / {
+        proxy_pass http://oran-rag-backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## Performance Optimization
+
+### Resource Tuning
+
+```yaml
+# Resource optimization for Kubernetes
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "4Gi"
+    cpu: "2000m"
+
+# JVM tuning for Java components
+env:
+- name: JAVA_OPTS
+  value: "-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
+# Python optimization
+env:
+- name: PYTHONUNBUFFERED
+  value: "1"
+- name: PYTHONDONTWRITEBYTECODE
+  value: "1"
+```
+
+### Caching Strategy
+
+```python
+# Redis caching configuration
+from redis import Redis
+from functools import wraps
+
+redis_client = Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    password=settings.REDIS_PASSWORD,
+    decode_responses=True
+)
+
+def cache_result(timeout=300):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            cache_key = f"{func.__name__}:{hash(str(args) + str(kwargs))}"
+            cached = redis_client.get(cache_key)
+            
+            if cached:
+                return json.loads(cached)
+            
+            result = await func(*args, **kwargs)
+            redis_client.setex(cache_key, timeout, json.dumps(result))
+            return result
+        return wrapper
+    return decorator
+```
+
+### Database Optimization
+
+```python
+# Vector database optimization
+chroma_client = chromadb.PersistentClient(
+    path=settings.VECTOR_DB_PATH,
+    settings=chromadb.config.Settings(
+        chroma_db_impl="duckdb+parquet",
+        persist_directory=settings.VECTOR_DB_PATH,
+        anonymized_telemetry=False
+    )
+)
+
+# Query optimization
+collection = chroma_client.get_or_create_collection(
+    name=settings.COLLECTION_NAME,
+    metadata={"hnsw:space": "cosine", "hnsw:M": 16}
+)
+```
+
+## Backup & Recovery
+
+### Database Backup
+
+```bash
+#!/bin/bash
+# backup.sh - Automated backup script
+
+BACKUP_DIR="/backups/oran-rag"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="oran-rag-backup-${TIMESTAMP}.tar.gz"
+
+# Create backup directory
+mkdir -p "${BACKUP_DIR}"
+
+# Backup vector database
+tar -czf "${BACKUP_DIR}/${BACKUP_FILE}" \
+  -C /app/data vectordb/ embeddings/ \
+  -C /app/logs . \
+  --exclude='*.tmp' \
+  --exclude='*.lock'
+
+# Upload to S3 (optional)
+if [ ! -z "$S3_BUCKET" ]; then
+  aws s3 cp "${BACKUP_DIR}/${BACKUP_FILE}" "s3://${S3_BUCKET}/backups/"
+fi
+
+# Cleanup old backups (keep last 7 days)
+find "${BACKUP_DIR}" -name "oran-rag-backup-*.tar.gz" -mtime +7 -delete
+
+echo "Backup completed: ${BACKUP_FILE}"
+```
+
+### Kubernetes Backup with Velero
+
+```bash
+# Install Velero
+velero install \
+  --provider aws \
+  --plugins velero/velero-plugin-for-aws:v1.7.0 \
+  --bucket oran-rag-backups \
+  --secret-file ./credentials-velero
+
+# Create backup schedule
+velero schedule create oran-rag-daily \
+  --schedule="0 2 * * *" \
+  --include-namespaces oran-rag \
+  --ttl 720h
+```
+
+### Disaster Recovery
+
+```bash
+#!/bin/bash
+# disaster-recovery.sh
+
+# 1. Restore from backup
+BACKUP_FILE="$1"
+if [ -z "$BACKUP_FILE" ]; then
+  echo "Usage: $0 <backup-file>"
+  exit 1
+fi
+
+# 2. Stop services
+docker-compose down
+
+# 3. Restore data
+tar -xzf "$BACKUP_FILE" -C /app/data/
+
+# 4. Restart services
+docker-compose up -d
+
+# 5. Verify restoration
+sleep 30
+curl -f http://localhost:8000/health || exit 1
+
+echo "Disaster recovery completed successfully"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Container Startup Issues
+
+```bash
+# Check container logs
+docker logs oran-rag-app --tail=100
+
+# Check resource usage
+docker stats oran-rag-app
+
+# Inspect container configuration
+docker inspect oran-rag-app
+```
+
+#### 2. Kubernetes Pod Issues
+
+```bash
+# Check pod status
+kubectl get pods -n oran-rag
+
+# Describe pod issues
+kubectl describe pod oran-rag-xxx -n oran-rag
+
+# Check events
+kubectl get events -n oran-rag --sort-by='.lastTimestamp'
+
+# Access pod logs
+kubectl logs -f oran-rag-xxx -n oran-rag
+```
+
+#### 3. Performance Issues
+
+```bash
+# Check resource usage
+kubectl top pods -n oran-rag
+kubectl top nodes
+
+# Analyze slow queries
+grep "slow_query" /app/logs/oran_nephio_rag.log | tail -20
+
+# Check database performance
+python -c "
+from src import create_rag_system
+rag = create_rag_system()
+status = rag.get_system_status()
+print('Vector DB Info:', status['vectordb_info'])
+"
+```
+
+### Diagnostic Tools
+
+```bash
+#!/bin/bash
+# diagnose.sh - System diagnostic script
+
+echo "=== O-RAN Nephio RAG System Diagnostics ==="
+
+# 1. Check application health
+echo "1. Application Health:"
+curl -s http://localhost:8000/health | jq .
+
+# 2. Check container status
+echo "2. Container Status:"
+docker-compose ps
+
+# 3. Check resource usage
+echo "3. Resource Usage:"
+docker stats --no-stream
+
+# 4. Check logs for errors
+echo "4. Recent Errors:"
+docker-compose logs --tail=50 | grep -i error
+
+# 5. Check disk space
+echo "5. Disk Usage:"
+df -h | grep -E "(/$|/app)"
+
+# 6. Check network connectivity
+echo "6. Network Connectivity:"
+curl -s -o /dev/null -w "%{http_code}" https://docs.nephio.org/
+
+echo "=== Diagnostics Complete ==="
+```
+
+## Maintenance
+
+### Regular Maintenance Tasks
+
+#### Daily
+- Monitor system health and performance metrics
+- Check error logs for anomalies
+- Verify backup completion
+- Review security alerts
+
+#### Weekly
+- Update vector database with latest documents
+- Analyze query patterns and performance
+- Check disk space and cleanup old logs
+- Review and rotate secrets if needed
+
+#### Monthly
+- Update container images and dependencies
+- Performance tuning based on usage patterns
+- Security audit and vulnerability scanning
+- Disaster recovery testing
+
+### Maintenance Scripts
+
+```bash
+#!/bin/bash
+# maintenance.sh - Regular maintenance tasks
+
+# Update vector database
+echo "Updating vector database..."
+python -c "
+from src.oran_nephio_rag import ORANNephioRAG
+rag = ORANNephioRAG()
+rag.update_database()
+"
+
+# Cleanup old logs
+echo "Cleaning up old logs..."
+find /app/logs -name "*.log.*" -mtime +30 -delete
+
+# Cleanup old backups
+echo "Cleaning up old backups..."
+find /backups -name "*.tar.gz" -mtime +30 -delete
+
+# Update dependencies
+echo "Checking for dependency updates..."
+pip list --outdated
+
+# Security scan
+echo "Running security scan..."
+docker run --rm -v $(pwd):/src returntocorp/semgrep --config=auto /src
+
+echo "Maintenance completed"
+```
+
+### Monitoring and Alerting
+
+```yaml
+# Alert rules for Prometheus
+groups:
+- name: oran-rag-alerts
+  rules:
+  - alert: HighErrorRate
+    expr: rate(rag_errors_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High error rate detected"
+      description: "Error rate is {{ $value }} errors per second"
+
+  - alert: HighResponseTime
+    expr: histogram_quantile(0.95, rate(rag_query_duration_seconds_bucket[5m])) > 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High response time detected"
+      description: "95th percentile response time is {{ $value }} seconds"
+
+  - alert: ServiceDown
+    expr: up{job="oran-rag"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "O-RAN RAG service is down"
+      description: "Service has been down for more than 1 minute"
+```
 
 ---
 
-**🎉 恭喜！您的 O-RAN × Nephio RAG 網站已成功部署至 GitHub Pages，準備好迎接全球使用者了！**
+## Conclusion
+
+This deployment guide provides comprehensive coverage for deploying the O-RAN × Nephio RAG System in various environments. For additional support or specific deployment scenarios, please refer to:
+
+- 📧 **Technical Support**: hctsai@linux.com
+- 🐛 **Issues**: [GitHub Issues](https://github.com/thc1006/oran-nephio-rag/issues)
+- 📖 **Documentation**: [Complete Guide](README.md)
+- 💬 **Community**: [GitHub Discussions](https://github.com/thc1006/oran-nephio-rag/discussions)
+
+**Production deployment checklist completed! Your O-RAN × Nephio RAG System is ready for enterprise-scale deployment.**

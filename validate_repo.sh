@@ -121,11 +121,11 @@ echo "=== PHASE 4: DOCUMENTATION TESTS ==="
 
 # Test referenced documentation files exist
 echo "Testing: Referenced documentation files"
-for doc in "docs/DOCKER_DEPLOYMENT.md"; do
+for doc in "DEPLOYMENT.md" "README.md" "CLAUDE.md"; do
     if [ -f "$doc" ]; then
         echo "✅ PASS: $doc exists"
     else
-        echo "❌ FAIL: $doc missing (referenced in README)"
+        echo "❌ FAIL: $doc missing (core documentation)"
     fi
 done
 

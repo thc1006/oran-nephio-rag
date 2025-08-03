@@ -1,0 +1,96 @@
+[
+  {
+    "category": "GitHub Workflows",
+    "files": [
+      ".github/workflows/pages.yml"
+    ],
+    "reason": "Removed Build and Deploy GitHub Pages workflow as requested"
+  },
+  {
+    "category": "Duplicate Documentation",
+    "files": [
+      "README_NEW.md",
+      "QUICK_DEPLOY.md",
+      "QUICK_FIX_GUIDE.md"
+    ],
+    "reason": "Content consolidated into comprehensive README.md and DEPLOYMENT.md"
+  },
+  {
+    "category": "Vestigial Reports",
+    "files": [
+      "FIX_SUMMARY.md",
+      "FIX_REPORT.md",
+      "FINAL_VALIDATION_REPORT.md",
+      "FINAL_PROJECT_STATUS.md",
+      "DOCUMENTATION_UPDATE_SUMMARY.md",
+      "INDEX_HTML_UPDATE_SUMMARY.md",
+      "GIT_COMMIT_SUCCESS.md",
+      "PROJECT_VERIFICATION_REPORT.md",
+      "SYSTEM_STATUS_REPORT.md",
+      "COMPLETE_TOOLKIT_SUMMARY.md"
+    ],
+    "reason": "Auto-generated reports and summaries no longer needed"
+  },
+  {
+    "category": "Generated Artifacts", 
+    "files": [
+      "verification_output.txt",
+      "verification_results.json"
+    ],
+    "reason": "Test output files that should not be in source control"
+  },
+  {
+    "category": "Jekyll/GitHub Pages Files",
+    "files": [
+      "_config.yml",
+      "Gemfile", 
+      "index.html",
+      "sitemap.xml",
+      "robots.txt",
+      "site.webmanifest",
+      "sw.js",
+      "_layouts/",
+      "_includes/",
+      "_pages/",
+      "assets/"
+    ],
+    "reason": "Jekyll static site files no longer needed after removing Pages workflow"
+  },
+  {
+    "category": "Cache Directories",
+    "files": [
+      "embeddings_cache/"
+    ],
+    "reason": "ML model cache should not be in source control, added to .gitignore"
+  },
+  {
+    "category": "Redundant Documentation Directories",
+    "files": [
+      "docs/"
+    ],
+    "reason": "Content consolidated into main DEPLOYMENT.md, directory was redundant"
+  },
+  {
+    "category": "Experimental Documentation",
+    "files": [
+      "EXPERIMENTAL_PUTER_INTEGRATION.md",
+      "PUTER_INTEGRATION_GUIDE.md", 
+      "PUTER_API_ANALYSIS.md"
+    ],
+    "reason": "Experimental documentation removed, actual implementation kept in source code"
+  },
+  {
+    "category": "Redundant Dependencies",
+    "files": [
+      "requirements-fixed.txt"
+    ],
+    "reason": "Duplicate of requirements.txt, consolidated into main requirements file"
+  },
+  {
+    "category": "Redundant Source Files",
+    "files": [
+      "src/init.py"
+    ],
+    "reason": "Incorrect duplicate of src/__init__.py with wrong content"
+  }
+]
