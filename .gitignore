@@ -27,4 +27,6 @@ logs/
 *.log
 *.db
 *.sqlite3
+.mcp
 oran_nephio_vectordb/
+.claude
