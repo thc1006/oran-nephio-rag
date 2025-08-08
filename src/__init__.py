@@ -21,7 +21,16 @@ __email__ = "hctsai@linux.com"
 # 主要類別導入
 from .config import Config, DocumentSource, validate_config
 from .document_loader import DocumentLoader, DocumentContentCleaner
-from .oran_nephio_rag import ORANNephioRAG, VectorDatabaseManager, QueryProcessor, create_rag_system, quick_query
+
+# RAG 系統導入 (條件性導入以支援測試)
+try:
+    from .oran_nephio_rag import ORANNephioRAG, VectorDatabaseManager, QueryProcessor, create_rag_system, quick_query
+    RAG_AVAILABLE = True
+except ImportError as e:
+    # 在測試環境中，如果依賴項目不可用，使用模擬版本
+    RAG_AVAILABLE = False
+    import logging
+    logging.getLogger(__name__).warning(f"RAG system not available: {e}")
 
 # 異步組件導入
 try:
@@ -43,22 +52,28 @@ __all__ = [
     "DocumentSource", 
     "DocumentLoader",
     "DocumentContentCleaner",
-    "ORANNephioRAG",
-    "VectorDatabaseManager",
-    "QueryProcessor",
     
     # 工廠函數
-    "create_rag_system",
-    "quick_query",
     "validate_config",
     
     # 元資訊
     "__version__",
     "__author__",
     "__email__",
+    "RAG_AVAILABLE",
     "ASYNC_AVAILABLE",
     "MONITORING_AVAILABLE",
 ]
+
+# RAG 系統組件（如果可用）
+if RAG_AVAILABLE:
+    __all__.extend([
+        "ORANNephioRAG",
+        "VectorDatabaseManager",
+        "QueryProcessor",
+        "create_rag_system",
+        "quick_query",
+    ])
 
 # 異步組件（如果可用）
 if ASYNC_AVAILABLE:
@@ -84,6 +99,7 @@ def get_system_info():
     return {
         "version": __version__,
         "author": __author__,
+        "rag_available": RAG_AVAILABLE,
         "async_available": ASYNC_AVAILABLE,
         "monitoring_available": MONITORING_AVAILABLE,
     }

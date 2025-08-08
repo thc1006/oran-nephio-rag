@@ -43,7 +43,8 @@ class RAGSystemMetrics:
     Comprehensive metrics collection for RAG system
     """
     
-    def __init__(self):
+    def __init__(self, config=None):
+        self.config = config or Config()
         # Initialize OpenTelemetry
         self._setup_opentelemetry()
         
@@ -158,8 +159,8 @@ class RAGSystemMetrics:
         
         # Jaeger exporter for distributed tracing
         jaeger_exporter = JaegerExporter(
-            agent_host_name="localhost",
-            agent_port=14268,
+            agent_host_name=self.config.JAEGER_AGENT_HOST if hasattr(self, 'config') else Config.JAEGER_AGENT_HOST,
+            agent_port=self.config.JAEGER_AGENT_PORT if hasattr(self, 'config') else Config.JAEGER_AGENT_PORT,
         )
         
         span_processor = BatchSpanProcessor(jaeger_exporter)
@@ -171,8 +172,8 @@ class RAGSystemMetrics:
         
         # OTLP exporter for metrics
         otlp_exporter = OTLPMetricExporter(
-            endpoint="http://localhost:4317",
-            insecure=True
+            endpoint=self.config.OTLP_ENDPOINT if hasattr(self, 'config') else Config.OTLP_ENDPOINT,
+            insecure=self.config.OTLP_INSECURE if hasattr(self, 'config') else Config.OTLP_INSECURE
         )
         otlp_reader = PeriodicExportingMetricReader(
             exporter=otlp_exporter,

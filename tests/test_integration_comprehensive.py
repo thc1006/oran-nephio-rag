@@ -12,10 +12,25 @@ import tempfile
 import shutil
 import os
 
-# Test markers for categorization
+# Skip marker for tests requiring heavy dependencies
+try:
+    # Test if we can import the problematic modules
+    import nltk
+    import scipy.stats
+    HEAVY_DEPS_AVAILABLE = True
+except (ImportError, ValueError):
+    HEAVY_DEPS_AVAILABLE = False
+
+skip_if_no_heavy_deps = pytest.mark.skipif(
+    not HEAVY_DEPS_AVAILABLE, 
+    reason="Requires NLTK and SciPy dependencies which have compatibility issues"
+)
+
+# Test markers for categorization  
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.slow
+    pytest.mark.slow,
+    skip_if_no_heavy_deps
 ]
 
 

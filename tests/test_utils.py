@@ -1,5 +1,5 @@
 import pytest
-from ..utils import batch_generator
+from utils import batch_generator
 
 def test_batch_generator_exact_division():
     """測試可以被批次大小整除的情況。"""

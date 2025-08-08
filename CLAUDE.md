@@ -257,6 +257,7 @@ Required:
 
 Optional but important:
 - `VECTOR_DB_PATH` - Vector database location (default: `./oran_nephio_vectordb`)
+- `EMBEDDINGS_CACHE_PATH` - Embedding model cache directory (default: `./embeddings_cache`)
 - `CLAUDE_MODEL` - Model name (default: `claude-3-sonnet-20240229`)
 - `CLAUDE_TEMPERATURE` - Generation temperature (default: `0.1`)
 - `CHUNK_SIZE` - Text chunk size (default: `1024`)

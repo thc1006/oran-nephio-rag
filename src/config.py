@@ -48,6 +48,7 @@ class Config:
     
     # ============ 向量資料庫設定 ============
     VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./oran_nephio_vectordb")
+    EMBEDDINGS_CACHE_PATH = os.getenv("EMBEDDINGS_CACHE_PATH", "./embeddings_cache")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "oran_nephio_official")
     
     # ============ 模型設定 ============
@@ -89,6 +90,13 @@ class Config:
     # ============ 安全性設定 ============
     VERIFY_SSL = os.getenv("VERIFY_SSL", "true").lower() == "true"  # 驗證 SSL 憑證
     SSL_TIMEOUT = int(os.getenv("SSL_TIMEOUT", "30"))  # SSL 連線超時時間
+    
+    # ============ Monitoring Configuration ============
+    JAEGER_AGENT_HOST = os.getenv("JAEGER_AGENT_HOST", "localhost")
+    JAEGER_AGENT_PORT = int(os.getenv("JAEGER_AGENT_PORT", "14268"))
+    OTLP_ENDPOINT = os.getenv("OTLP_ENDPOINT", "http://localhost:4317")
+    OTLP_INSECURE = os.getenv("OTLP_INSECURE", "true").lower() == "true"
+    METRICS_PORT = int(os.getenv("METRICS_PORT", "8000"))
     
     # ============ 官方文件來源白名單 ============
     OFFICIAL_SOURCES: List[DocumentSource] = [
@@ -204,6 +212,10 @@ class Config:
             if cls.CHUNK_OVERLAP >= cls.CHUNK_SIZE:
                 errors.append("CHUNK_OVERLAP 不能大於等於 CHUNK_SIZE")
             
+            # 檢查 EMBEDDINGS_CACHE_PATH 父目錄是否存在
+            if not pathlib.Path(cls.EMBEDDINGS_CACHE_PATH).parent.exists():
+                errors.append(f"EMBEDDINGS_CACHE_PATH 父目錄不存在: {cls.EMBEDDINGS_CACHE_PATH}")
+            
             # 檢查並建立目錄
             cls._ensure_directories()
             
@@ -236,7 +248,8 @@ class Config:
         """確保必要目錄存在"""
         directories = [
             ("日誌目錄", pathlib.Path(cls.LOG_FILE).parent),
-            ("向量資料庫目錄", pathlib.Path(cls.VECTOR_DB_PATH))
+            ("向量資料庫目錄", pathlib.Path(cls.VECTOR_DB_PATH)),
+            ("嵌入快取目錄", pathlib.Path(cls.EMBEDDINGS_CACHE_PATH))
         ]
         
         for name, directory in directories:
