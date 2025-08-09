@@ -68,3 +68,10 @@ __pycache__/
 build/
 dist/
 
+# Test & coverage artifacts (large/generated)
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+
