@@ -257,6 +257,10 @@ class VectorDatabaseManager:
             logger.error(f"❌ 相似性搜尋失敗: {str(e)}")
             return []
     
+    def similarity_search(self, query: str, k: int = 5):
+        """Return documents without scores for simple demos."""
+        return [doc for doc, _ in self.search_similar(query, k)]
+    
     def get_database_info(self) -> Dict[str, Any]:
         """
         取得資料庫資訊

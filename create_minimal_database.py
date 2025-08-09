@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def create_minimal_database():
     """Create a minimal database with sample documents"""
-    print("🔨 Creating minimal vector database for testing...")
+    print("[*] Creating minimal vector database for testing...")
     
     try:
         from oran_nephio_rag import VectorDatabaseManager
@@ -90,52 +90,52 @@ def create_minimal_database():
             )
         ]
         
-        print(f"📄 Created {len(sample_docs)} sample documents")
+        print(f"[+] Created {len(sample_docs)} sample documents")
         
         # Build vector database
-        print("🔧 Building vector database...")
+        print("[*] Building vector database...")
         success = vector_manager.build_vector_database(sample_docs)
         
         if success:
-            print("✅ Minimal vector database created successfully!")
+            print("[+] Minimal vector database created successfully!")
             
             # Test loading
-            print("🔍 Testing database loading...")
+            print("[*] Testing database loading...")
             if vector_manager.load_existing_database():
-                print("✅ Database loading successful!")
+                print("[+] Database loading successful!")
                 
                 # Test similarity search
-                print("🔎 Testing similarity search...")
-                results = vector_manager.similarity_search("What is Nephio?", k=2)
-                print(f"📊 Found {len(results)} similar documents")
+                print("[*] Testing similarity search...")
+                results = vector_manager.search_similar("What is Nephio?", k=2)
+                print(f"[+] Found {len(results)} similar documents")
                 
-                for i, doc in enumerate(results, 1):
+                for i, (doc, score) in enumerate(results, 1):
                     print(f"   {i}. {doc.metadata.get('description', 'Unknown')}")
                 
                 return True
             else:
-                print("❌ Database loading failed")
+                print("[-] Database loading failed")
                 return False
         else:
-            print("❌ Database creation failed")
+            print("[-] Database creation failed")
             return False
             
     except Exception as e:
-        print(f"❌ Failed to create minimal database: {e}")
+        print(f"[-] Failed to create minimal database: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 O-RAN × Nephio RAG System - Minimal Database Creator")
+    print("O-RAN x Nephio RAG System - Minimal Database Creator")
     print("=" * 60)
     
     success = create_minimal_database()
     
     print("\n" + "=" * 60)
     if success:
-        print("🎉 Minimal database ready!")
+        print("[+] Minimal database ready!")
         print("\nYou can now test the system:")
         print("1. Run: python main.py")
         print("2. Try asking questions like:")
@@ -143,5 +143,5 @@ if __name__ == "__main__":
         print("   - How does O-RAN work?")
         print("   - What is network function scale-out?")
     else:
-        print("❌ Failed to create minimal database")
+        print("[-] Failed to create minimal database")
     print("=" * 60)

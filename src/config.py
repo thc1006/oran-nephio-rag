@@ -24,11 +24,11 @@ class DocumentSource:
     enabled: bool = True
     
     def __post_init__(self):
-        """初始化後驗證"""
+        """Validation after initialization"""
         if self.priority not in range(1, 6):
-            raise ValueError("優先級必須在 1-5 之間")
+            raise ValueError("Priority must be between 1-5")
         if self.source_type not in ['nephio', 'oran_sc']:
-            raise ValueError("來源類型必須是 'nephio' 或 'oran_sc'")
+            raise ValueError("Source type must be 'nephio' or 'oran_sc'")
 
 class Config:
     """系統配置類別"""

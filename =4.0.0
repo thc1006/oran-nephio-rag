@@ -1,0 +1,15 @@
+Collecting pytest-benchmark
+  Downloading pytest_benchmark-5.1.0-py3-none-any.whl (44 kB)
+Collecting py-cpuinfo
+  Downloading py_cpuinfo-9.0.0-py3-none-any.whl (22 kB)
+Requirement already satisfied: pytest>=8.1 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest-benchmark) (8.4.1)
+Requirement already satisfied: colorama>=0.4 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (0.4.6)
+Requirement already satisfied: exceptiongroup>=1 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (1.3.0)
+Requirement already satisfied: iniconfig>=1 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (1.1.1)
+Requirement already satisfied: pygments>=2.7.2 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (2.19.2)
+Requirement already satisfied: packaging>=20 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (24.2)
+Requirement already satisfied: tomli>=1 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (1.2.2)
+Requirement already satisfied: pluggy<2,>=1.5 in c:\users\thc1006\anaconda3\lib\site-packages (from pytest>=8.1->pytest-benchmark) (1.6.0)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\users\thc1006\anaconda3\lib\site-packages (from exceptiongroup>=1->pytest>=8.1->pytest-benchmark) (4.14.1)
+Installing collected packages: py-cpuinfo, pytest-benchmark
+Successfully installed py-cpuinfo-9.0.0 pytest-benchmark-5.1.0

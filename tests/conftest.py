@@ -343,15 +343,15 @@ def mock_huggingface_embeddings():
     """Mock HuggingFace embeddings model"""
     mock_embeddings = MagicMock()
     
-    # Mock embeddings with consistent dimensions
-    def mock_embed_documents(texts):
-        return [[0.1 + i * 0.01] * TEST_EMBEDDINGS_DIM for i in range(len(texts))]
+    # Mock embeddings with consistent dimensions - using Mock objects for assertion support
+    mock_embeddings.embed_documents = MagicMock(
+        side_effect=lambda texts: [[0.1 + i * 0.01] * TEST_EMBEDDINGS_DIM for i in range(len(texts))]
+    )
     
-    def mock_embed_query(text):
-        return [0.5] * TEST_EMBEDDINGS_DIM
+    mock_embeddings.embed_query = MagicMock(
+        side_effect=lambda text: [0.5] * TEST_EMBEDDINGS_DIM
+    )
     
-    mock_embeddings.embed_documents = mock_embed_documents
-    mock_embeddings.embed_query = mock_embed_query
     mock_embeddings.model_name = "sentence-transformers/all-MiniLM-L6-v2"
     mock_embeddings.cache_folder = "./test_embeddings_cache"
     
@@ -540,7 +540,7 @@ def sample_document_sources():
                 url="https://docs.nephio.org/deprecated",
                 source_type="nephio",
                 description="Deprecated Documentation",
-                priority=10,
+                priority=5,
                 enabled=False
             )
         ],

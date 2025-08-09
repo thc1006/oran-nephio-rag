@@ -44,7 +44,24 @@ class TestEndToEndRAGWorkflow:
         config.MIN_EXTRACTED_CONTENT_LENGTH = 25
         config.REQUEST_DELAY = 0
         
-        with patch('src.document_loader.requests.Session', return_value=services['session']):\n            loader = DocumentLoader(config)\n            \n            # Load documents using real HTTP (but mocked responses)\n            import requests\n            docs = []\n            for url in ["https://docs.nephio.org/architecture", "https://docs.nephio.org/o-ran-integration"]:\n                response = requests.get(url)\n                # Simulate document creation (simplified)\n                from langchain.docstore.document import Document\n                doc = Document(\n                    page_content=f"Mock content from {url} about Nephio and O-RAN scaling",\n                    metadata={"source": url, "type": "nephio"}\n                )\n                docs.append(doc)
+        with patch("src.document_loader.requests.Session",
+                   return_value=services["session"]):
+            loader = DocumentLoader(config)
+
+            # Load documents using mocked HTTP responses
+            import requests
+            docs = []
+            for url in [
+                "https://docs.nephio.org/architecture",
+                "https://docs.nephio.org/o-ran-integration",
+            ]:
+                response = requests.get(url)
+                from langchain.docstore.document import Document
+                doc = Document(
+                    page_content=f"Mock content from {url} about Nephio and O-RAN scaling",
+                    metadata={"source": url, "type": "nephio"},
+                )
+                docs.append(doc)
         
         assert len(docs) == 2
         

@@ -19,7 +19,7 @@ try:
         from oran_nephio_rag_fixed import PuterRAGSystem as ORANNephioRAG
         from config import Config, validate_config
 except ImportError as e:
-    print(f"❌ 模組導入失敗: {e}")
+    print(f"[!] Module import failed: {e}")
     print("請確保已安裝所有依賴套件：pip install -r requirements.txt")
     print("注意：現在使用符合 Puter.js 約束的版本")
     sys.exit(1)
@@ -66,7 +66,7 @@ def setup_logging() -> None:
 def display_welcome() -> None:
     """顯示歡迎訊息"""
     print("=" * 60)
-    print("🚀 O-RAN × Nephio 整合查詢系統")
+    print("[*] O-RAN x Nephio Integrated Query System")
     print("=" * 60)
     print("專注於 Network Function Scale-out & Scale-in 實作指導")
     print("所有回答基於官方文件，確保資訊的權威性和準確性")
@@ -74,7 +74,7 @@ def display_welcome() -> None:
 
 def display_commands() -> None:
     """顯示可用指令"""
-    print("📋 可用指令:")
+    print("[*] Available Commands:")
     print("  quit/exit/退出    - 結束程式")
     print("  update           - 更新向量資料庫")
     print("  status           - 顯示系統狀態")
@@ -85,7 +85,7 @@ def display_commands() -> None:
 
 def display_examples() -> None:
     """顯示範例問題"""
-    print("\n💡 範例問題:")
+    print("\n[*] Example Questions:")
     examples = [
         "如何在 Nephio 上實現 O-RAN DU 的 scale-out？",
         "O2IMS 介面在 NF 擴縮中扮演什麼角色？",
@@ -106,12 +106,12 @@ def clear_screen() -> None:
 def format_system_status(status: dict) -> str:
     """格式化系統狀態顯示"""
     output = []
-    output.append("📊 系統狀態:")
+    output.append("[*] System Status:")
     output.append("-" * 30)
 
     # 基本狀態
-    vectordb_status = "✅ 就緒" if status.get("vectordb_ready") else "❌ 未就緒"
-    qa_chain_status = "✅ 就緒" if status.get("qa_chain_ready") else "❌ 未就緒"
+    vectordb_status = "[+] Ready" if status.get("vectordb_ready") else "[-] Not Ready"
+    qa_chain_status = "[+] Ready" if status.get("qa_chain_ready") else "[-] Not Ready"
 
     output.append(f"向量資料庫: {vectordb_status}")
     output.append(f"問答鏈: {qa_chain_status}")
@@ -157,34 +157,34 @@ def main() -> int:
 
         # 驗證配置
         logger.info("驗證系統配置...")
-        print("🔍 驗證系統配置...")
+        print("[*] Validating system configuration...")
         validate_config()
-        print("✅ 配置驗證通過")
+        print("[+] Configuration validation passed")
 
         # 初始化 RAG 系統
         logger.info("初始化 RAG 系統...")
-        print("🚀 初始化 RAG 系統...")
+        print("[*] Initializing RAG system...")
         rag_system = ORANNephioRAG()
 
         # 載入向量資料庫
         logger.info("載入向量資料庫...")
-        print("📚 載入向量資料庫...")
+        print("[*] Loading vector database...")
         if not rag_system.load_existing_database():
-            print("❌ 向量資料庫載入失敗")
+            print("[-] Vector database loading failed")
             logger.error("向量資料庫載入失敗")
             return 1
-        print("✅ 向量資料庫載入成功")
+        print("[+] Vector database loaded successfully")
 
         # 設定問答鏈
         logger.info("設定問答鏈...")
-        print("🔗 設定問答鏈...")
+        print("[*] Setting up Q&A chain...")
         if not rag_system.setup_qa_chain():
-            print("❌ 問答鏈設定失敗")
+            print("[-] Q&A chain setup failed")
             logger.error("問答鏈設定失敗")
             return 1
-        print("✅ 問答鏈設定成功")
+        print("[+] Q&A chain setup successfully")
 
-        print("\n🎉 系統初始化完成！")
+        print("\n[+] System initialization complete!")
         display_commands()
 
         # 主要互動循環
@@ -198,7 +198,7 @@ def main() -> int:
 
                 # 處理特殊指令
                 if question.lower() in ['quit', 'exit', '退出']:
-                    print("👋 感謝使用！再見！")
+                    print("[*] Thank you for using! Goodbye!")
                     logger.info("用戶正常退出程式")
                     break
 
@@ -216,14 +216,14 @@ def main() -> int:
                     continue
 
                 elif question.lower() == 'update':
-                    print("🔄 正在更新向量資料庫...")
+                    print("[*] Updating vector database...")
                     logger.info("用戶觸發資料庫更新")
 
                     if rag_system.update_database():
-                        print("✅ 向量資料庫更新成功！")
+                        print("[+] Vector database updated successfully!")
                         logger.info("向量資料庫更新成功")
                     else:
-                        print("❌ 向量資料庫更新失敗")
+                        print("[-] Vector database update failed")
                         logger.error("向量資料庫更新失敗")
                     continue
 
@@ -232,12 +232,12 @@ def main() -> int:
                         status = rag_system.get_system_status()
                         print(f"\n{format_system_status(status)}")
                     except Exception as e:
-                        print(f"❌ 無法取得系統狀態: {e}")
+                        print(f"[-] Cannot get system status: {e}")
                         logger.error(f"取得系統狀態失敗: {e}")
                     continue
                 
                 # 處理一般問題查詢
-                print("🤔 正在思考中...")
+                print("[*] Thinking...")
                 logger.info(f"處理用戶查詢: {question[:50]}...")
 
                 start_time = datetime.now()
@@ -249,15 +249,15 @@ def main() -> int:
 
                 # 顯示結果
                 if result.get('error'):
-                    print(f"\n❌ 查詢錯誤: {result['error']}")
+                    print(f"\n[-] Query error: {result['error']}")
                     logger.error(f"查詢錯誤: {result['error']}")
                 else:
-                    print(f"\n💡 回答：\n{result['answer']}")
+                    print(f"\n[+] Answer:\n{result['answer']}")
 
                     # 顯示參考來源
                     sources = result.get('sources', [])
                     if sources:
-                        print(f"\n📚 參考來源 ({len(sources)} 個):")
+                        print(f"\n[*] Reference sources ({len(sources)} items):")
                         for i, source in enumerate(sources[:3], 1):  # 只顯示前 3 個
                             source_type = source.get('type', 'UNKNOWN').upper()
                             description = source.get('description', '未知')
@@ -270,26 +270,26 @@ def main() -> int:
                 print("-" * 60)
                 
             except KeyboardInterrupt:
-                print("\n\n👋 程式被使用者中斷，再見！")
+                print("\n\n[*] Program interrupted by user, goodbye!")
                 logger.info("程式被用戶中斷")
                 break
                 
             except Exception as e:
-                print(f"\n❌ 發生錯誤: {str(e)}")
+                print(f"\n[-] Error occurred: {str(e)}")
                 logger.error(f"處理用戶輸入時發生錯誤: {str(e)}", exc_info=True)
                 print("請檢查日誌檔案以獲取詳細資訊")
         
         return 0
     
     except KeyboardInterrupt:
-        print("\n\n👋 程式被使用者中斷，再見！")
+        print("\n\n[*] Program interrupted by user, goodbye!")
         if logger:
             logger.info("程式被用戶中斷")
         return 0
         
     except Exception as e:
         error_msg = f"程式啟動失敗: {str(e)}"
-        print(f"❌ {error_msg}")
+        print(f"[-] {error_msg}")
         
         if logger:
             logger.error(error_msg, exc_info=True)
