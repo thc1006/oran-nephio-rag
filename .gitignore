@@ -39,3 +39,32 @@ __pycache__/
 # Generated artifacts
 verification_output.txt
 verification_results.json
+
+# 模型緩存資料夾
+embeddings_cache/
+test_embeddings_cache/
+*.cache
+.cache/
+
+# Hugging Face 緩存
+models--*/
+snapshots/
+
+# 常見機器學習檔案
+*.safetensors
+*.bin
+*.h5
+*.pkl
+*.model
+*.weights
+*.ckpt
+
+# Python 緩存
+__pycache__/
+*.pyc
+*.pyo
+
+# 建構產物
+build/
+dist/
+
