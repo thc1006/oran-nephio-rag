@@ -58,6 +58,9 @@ snapshots/
 *.model
 *.weights
 *.ckpt
+*.pt
+*.pth
+*.onnx
 
 # Python 緩存
 __pycache__/
@@ -75,3 +78,31 @@ coverage.xml
 htmlcov/
 .pytest_cache/
 
+# Archives (often large)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# Media (often large)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.mp3
+*.wav
+*.flac
+
+# Common ML output dirs
+checkpoints/
+artifacts/
+outputs/
+wandb/
+mlruns/
+
+# Editors
+.vscode/
+model.safetensors
