@@ -673,8 +673,10 @@ def mock_all_external_services(mock_chromadb, mock_huggingface_embeddings, mock_
             started_patches.append(p.start())
         yield {
             'puter_adapter': mock_puter_adapter,
+            'llm_adapter': mock_puter_adapter,
             'webdriver': mock_selenium_webdriver,
             'chromadb': mock_chromadb,
+            'vectordb': mock_chromadb,
             'embeddings': mock_huggingface_embeddings,
             'session': mock_requests_session
         }

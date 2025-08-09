@@ -119,7 +119,7 @@ class TestDocumentLoader:
             <body>
                 <main>
                     <h1>Test Document</h1>
-                    <p>This is test content for Nephio and O-RAN scaling operations. Nephio is a cloud-native automation platform for network function deployment and management. O-RAN provides open interfaces and architecture for radio access network disaggregation. This content is specifically designed to be long enough for the document loader validation while containing relevant keywords about network scaling, deployment, and operations management.</p>
+                    <p>This is test content for Nephio and O-RAN scaling operations. Nephio is a cloud-native automation platform for network function deployment and management. O-RAN provides open interfaces and architecture for radio access network disaggregation. This content is specifically designed to be long enough for the document loader validation while containing relevant keywords about network scaling, deployment, and operations management. The content includes comprehensive information about container orchestration, microservices architecture, network function virtualization, and cloud-native automation for telecom infrastructure deployment and scaling operations.</p>
                 </main>
             </body>
         </html>
