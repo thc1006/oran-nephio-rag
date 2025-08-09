@@ -29,23 +29,22 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 # Conditional imports - skip tests if dependencies not available
 if HEAVY_DEPS_AVAILABLE:
     try:
-        from src.oran_nephio_rag import ORANNephioRAG, VectorDatabaseManager, QueryProcessor, create_rag_system, quick_query
+        from src.oran_nephio_rag_fixed import PuterRAGSystem, SimplifiedVectorDatabase, create_rag_system, quick_query
         from src.config import Config, DocumentSource
     except ImportError:
         HEAVY_DEPS_AVAILABLE = False
         
 if not HEAVY_DEPS_AVAILABLE:
     # Create dummy classes for test collection
-    class ORANNephioRAG: pass
-    class VectorDatabaseManager: pass  
-    class QueryProcessor: pass
+    class PuterRAGSystem: pass
+    class SimplifiedVectorDatabase: pass
     def create_rag_system(): pass
     def quick_query(): pass
     from config import Config, DocumentSource
 
 @skip_if_no_heavy_deps
-class TestVectorDatabaseManager:
-    """VectorDatabaseManager 類別測試"""
+class TestSimplifiedVectorDatabase:
+    """SimplifiedVectorDatabase 類別測試"""
     
     def setup_method(self):
         """每個測試方法執行前的設定"""
@@ -62,36 +61,20 @@ class TestVectorDatabaseManager:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
     
-    @patch('src.oran_nephio_rag.HuggingFaceEmbeddings')
-    def test_init_components(self, mock_embeddings):
-        """測試組件初始化"""
-        mock_embeddings_instance = MagicMock()
-        mock_embeddings.return_value = mock_embeddings_instance
+    def test_init_components(self):
+        """測試簡化向量資料庫初始化"""
+        db_path = os.path.join(self.temp_dir, "test.json")
+        manager = SimplifiedVectorDatabase(db_path)
         
-        manager = VectorDatabaseManager(self.config)
-        
-        assert manager.config == self.config
-        assert manager.embeddings == mock_embeddings_instance
-        assert manager.text_splitter is not None
-        
-        # 檢查 HuggingFaceEmbeddings 是否被正確調用
-        mock_embeddings.assert_called_once()
-        call_kwargs = mock_embeddings.call_args[1]
-        assert call_kwargs['model_name'] == "sentence-transformers/all-mpnet-base-v2"
-        assert call_kwargs['cache_folder'] == self.config.EMBEDDINGS_CACHE_PATH
+        assert manager.db_path == db_path
+        assert manager.documents == []
+        assert manager.doc_index == {}
     
-    @patch('src.oran_nephio_rag.HuggingFaceEmbeddings')
-    @patch('src.oran_nephio_rag.Chroma')
-    def test_build_vector_database(self, mock_chroma, mock_embeddings):
-        """測試建立向量資料庫"""
-        # 設定 mocks
-        mock_embeddings_instance = MagicMock()
-        mock_embeddings.return_value = mock_embeddings_instance
+    def test_add_documents(self):
+        """測試添加文檔到資料庫"""
+        db_path = os.path.join(self.temp_dir, "test.json")
+        manager = SimplifiedVectorDatabase(db_path)
         
-        mock_vectordb = MagicMock()
-        mock_chroma.from_documents.return_value = mock_vectordb
-        
-        # 創建測試文件
         from langchain.docstore.document import Document
         test_docs = [
             Document(
@@ -104,112 +87,40 @@ class TestVectorDatabaseManager:
             )
         ]
         
-        manager = VectorDatabaseManager(self.config)
-        result = manager.build_vector_database(test_docs)
+        manager.add_documents(test_docs)
         
-        assert result == mock_vectordb
-        mock_chroma.from_documents.assert_called_once()
-        mock_vectordb.persist.assert_called_once()
+        assert len(manager.documents) == 2
+        assert len(manager.doc_index) == 2
+        assert manager.documents[0]['content'] == test_docs[0].page_content
+        assert manager.documents[1]['content'] == test_docs[1].page_content
     
-    @patch('src.oran_nephio_rag.HuggingFaceEmbeddings')
-    def test_handle_long_document(self, mock_embeddings):
-        """測試處理長文件"""
-        mock_embeddings.return_value = MagicMock()
-        
-        from langchain.docstore.document import Document
-        
-        # 創建一個長文件
-        long_content = "This is about nephio scaling. " * 200  # 很長的內容
-        long_doc = Document(
-            page_content=long_content,
-            metadata={"source": "test"}
-        )
-        
-        manager = VectorDatabaseManager(self.config)
-        processed_doc = manager._handle_long_document(long_doc)
-        
-        # 長文件應該被處理（截短或摘要）
-        assert len(processed_doc.page_content) <= len(long_content)
-        assert "processing_method" in processed_doc.metadata or processed_doc.page_content == long_content
 
 @skip_if_no_heavy_deps
-class TestQueryProcessor:
-    """QueryProcessor 類別測試"""
+class TestPuterRAGSystemBasic:
+    """PuterRAGSystem 基本功能測試"""
     
     def setup_method(self):
         """每個測試方法執行前的設定"""
         with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'}):
             self.config = Config()
     
-    @patch('src.oran_nephio_rag.ChatAnthropic')
-    def test_init_llm(self, mock_claude):
-        """測試 LLM 初始化"""
-        mock_claude_instance = MagicMock()
-        mock_claude.return_value = mock_claude_instance
-        
-        processor = QueryProcessor(self.config)
-        
-        assert processor.llm == mock_claude_instance
-        mock_claude.assert_called_once_with(
-            model=self.config.CLAUDE_MODEL,
-            anthropic_api_key=self.config.ANTHROPIC_API_KEY,
-            temperature=self.config.CLAUDE_TEMPERATURE,
-            max_tokens=self.config.CLAUDE_MAX_TOKENS,
-            timeout=60
-        )
     
-    @patch('src.oran_nephio_rag.ChatAnthropic')
-    @patch('src.oran_nephio_rag.RetrievalQA')
-    def test_create_qa_chain(self, mock_qa, mock_claude):
-        """測試建立問答鏈"""
-        # 設定 mocks
-        mock_claude.return_value = MagicMock()
-        mock_vectordb = MagicMock()
-        mock_retriever = MagicMock()
-        mock_vectordb.as_retriever.return_value = mock_retriever
-        
-        mock_qa_chain = MagicMock()
-        mock_qa.from_chain_type.return_value = mock_qa_chain
-        
-        processor = QueryProcessor(self.config)
-        result = processor.create_qa_chain(mock_vectordb)
-        
-        assert result == mock_qa_chain
-        mock_vectordb.as_retriever.assert_called_once()
-        mock_qa.from_chain_type.assert_called_once()
     
-    @patch('src.oran_nephio_rag.ChatAnthropic')
-    def test_format_answer_with_citations(self, mock_claude):
-        """測試格式化答案並添加引用"""
-        mock_claude.return_value = MagicMock()
+    @patch('src.oran_nephio_rag_fixed.create_puter_rag_manager')
+    def test_basic_setup(self, mock_create_puter):
+        """測試基本系統設置"""
+        mock_create_puter.return_value = MagicMock()
         
-        processor = QueryProcessor(self.config)
+        system = PuterRAGSystem(self.config)
         
-        answer = "This is a test answer about Nephio."
-        sources = [
-            {
-                "type": "nephio",
-                "description": "Nephio Documentation",
-                "url": "https://docs.nephio.org/test"
-            },
-            {
-                "type": "oran_sc",
-                "description": "O-RAN SC Guide",
-                "url": "https://o-ran-sc.org/test"
-            }
-        ]
-        
-        formatted = processor.format_answer_with_citations(answer, sources)
-        
-        assert answer in formatted
-        assert "參考來源" in formatted
-        assert "Nephio Documentation" in formatted
-        assert "O-RAN SC Guide" in formatted
-        assert "https://docs.nephio.org/test" in formatted
+        assert system.config == self.config
+        assert system.vectordb is not None
+        assert system.text_splitter is not None
+        assert system.puter_manager is not None
 
 @skip_if_no_heavy_deps
-class TestORANNephioRAG:
-    """ORANNephioRAG 主類別測試"""
+class TestPuterRAGSystemIntegration:
+    """PuterRAGSystem 整合測試"""
     
     def setup_method(self):
         """每個測試方法執行前的設定"""
@@ -221,9 +132,9 @@ class TestORANNephioRAG:
             shutil.rmtree(self.temp_dir)
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.DocumentLoader')
-    @patch('src.oran_nephio_rag.VectorDatabaseManager')
-    @patch('src.oran_nephio_rag.QueryProcessor')
+    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
+    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager')
+    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
     def test_init(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
         """測試 RAG 系統初始化"""
         # 設定 mocks
@@ -247,9 +158,9 @@ class TestORANNephioRAG:
         assert isinstance(rag._initialization_time, datetime)
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.DocumentLoader')
-    @patch('src.oran_nephio_rag.VectorDatabaseManager')
-    @patch('src.oran_nephio_rag.QueryProcessor')
+    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
+    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager')
+    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
     def test_build_vector_database(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
         """測試建立向量資料庫"""
         # 設定 mocks
@@ -278,9 +189,9 @@ class TestORANNephioRAG:
         mock_vector_manager_instance.build_vector_database.assert_called_once_with(test_docs)
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.DocumentLoader')
-    @patch('src.oran_nephio_rag.VectorDatabaseManager') 
-    @patch('src.oran_nephio_rag.QueryProcessor')
+    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
+    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager') 
+    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
     def test_query_success(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
         """測試成功查詢"""
         # 設定 mocks
@@ -323,9 +234,9 @@ class TestORANNephioRAG:
         assert result["sources"][0]["url"] == "https://test.com"
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.DocumentLoader')
-    @patch('src.oran_nephio_rag.VectorDatabaseManager')
-    @patch('src.oran_nephio_rag.QueryProcessor')
+    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
+    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager')
+    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
     def test_query_not_ready(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
         """測試系統未準備就緒時的查詢"""
         mock_doc_loader.return_value = MagicMock()
@@ -342,9 +253,9 @@ class TestORANNephioRAG:
         assert "系統尚未準備就緒" in result["answer"]
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.DocumentLoader')
-    @patch('src.oran_nephio_rag.VectorDatabaseManager')
-    @patch('src.oran_nephio_rag.QueryProcessor')
+    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
+    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager')
+    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
     def test_get_system_status(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
         """測試取得系統狀態"""
         # 設定 mocks
@@ -380,7 +291,7 @@ class TestUtilityFunctions:
     """測試工具函數"""
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.ORANNephioRAG')
+    @patch('src.oran_nephio_rag_fixed.PuterRAGSystem')
     def test_create_rag_system(self, mock_rag_class):
         """測試建立 RAG 系統工廠函數"""
         mock_rag_instance = MagicMock()
@@ -392,7 +303,7 @@ class TestUtilityFunctions:
         mock_rag_class.assert_called_once_with(None)
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.create_rag_system')
+    @patch('src.oran_nephio_rag_fixed.create_rag_system')
     def test_quick_query(self, mock_create_rag):
         """測試快速查詢函數"""
         # 設定 mock RAG 系統
@@ -411,7 +322,7 @@ class TestUtilityFunctions:
         mock_rag.query.assert_called_once_with("Test question")
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag.create_rag_system')
+    @patch('src.oran_nephio_rag_fixed.create_rag_system')
     def test_quick_query_failure(self, mock_create_rag):
         """測試快速查詢失敗情況"""
         # 模擬創建失敗
@@ -435,10 +346,10 @@ class TestRAGSystemIntegration:
             shutil.rmtree(self.temp_dir)
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key-123'})
-    @patch('src.oran_nephio_rag.HuggingFaceEmbeddings')
-    @patch('src.oran_nephio_rag.ChatAnthropic')
-    @patch('src.oran_nephio_rag.DocumentLoader')
-    @patch('src.oran_nephio_rag.Chroma')
+    @patch('src.oran_nephio_rag_fixed.HuggingFaceEmbeddings')
+    @patch('src.oran_nephio_rag_fixed.ChatAnthropic')
+    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
+    @patch('src.oran_nephio_rag_fixed.Chroma')
     def test_full_workflow(self, mock_chroma, mock_doc_loader, mock_claude, mock_embeddings):
         """測試完整工作流程"""
         # 設定所有 mocks

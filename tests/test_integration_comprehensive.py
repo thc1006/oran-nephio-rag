@@ -45,16 +45,16 @@ class TestRAGSystemIntegration:
         
     def test_system_initialization_flow(self, mock_config, mock_vectordb, mock_embeddings):
         """Test complete system initialization"""
-        with patch('src.oran_nephio_rag.VectorDatabaseManager') as mock_vdb_manager:
+        with patch('src.oran_nephio_rag_fixed.VectorDatabaseManager') as mock_vdb_manager:
             mock_instance = Mock()
             mock_instance.build_vector_database.return_value = True
             mock_instance.load_existing_database.return_value = True
             mock_vdb_manager.return_value = mock_instance
             
-            from src.oran_nephio_rag import ORANNephioRAG
+            from src.oran_nephio_rag_fixed import PuterRAGSystem
             
             # Test initialization
-            rag_system = ORANNephioRAG()
+            rag_system = PuterRAGSystem()
             assert rag_system is not None
             
             # Test database loading
@@ -93,12 +93,12 @@ class TestRAGSystemIntegration:
     ])
     def test_query_processing_variations(self, query, expected_keywords, mock_vectordb):
         """Test query processing with various inputs"""
-        from src.oran_nephio_rag import QueryProcessor
+        from src.oran_nephio_rag_fixed import PuterRAGSystem
         
         with patch('langchain_anthropic.ChatAnthropic') as mock_claude:
             mock_claude.return_value.invoke.return_value.content = f"Response for: {query}"
             
-            processor = QueryProcessor()
+            system = PuterRAGSystem()
             processor.vectordb = mock_vectordb
             processor._setup_qa_chain()
             
@@ -113,7 +113,7 @@ class TestRAGSystemIntegration:
         
         # Test with invalid API key
         with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'invalid-key'}):
-            rag_system = ORANNephioRAG()
+            rag_system = PuterRAGSystem()
             
             # Should handle gracefully
             with pytest.raises(Exception):
@@ -121,9 +121,9 @@ class TestRAGSystemIntegration:
 
     def test_concurrent_query_handling(self, mock_vectordb):
         """Test system under concurrent load"""
-        from src.oran_nephio_rag import QueryProcessor
+        from src.oran_nephio_rag_fixed import PuterRAGSystem
         
-        processor = QueryProcessor()
+        system = PuterRAGSystem()
         processor.vectordb = mock_vectordb
         
         queries = [
@@ -155,7 +155,7 @@ class TestRAGSystemIntegration:
         from src.oran_nephio_rag import ORANNephioRAG
         
         with patch.object(ORANNephioRAG, 'get_system_status', return_value=mock_system_status):
-            rag_system = ORANNephioRAG()
+            rag_system = PuterRAGSystem()
             status = rag_system.get_system_status()
             
             # Verify status structure
@@ -172,7 +172,7 @@ class TestRAGSystemIntegration:
         with patch('src.document_loader.DocumentLoader') as mock_loader:
             mock_loader.return_value.load_documents.return_value = sample_documents
             
-            rag_system = ORANNephioRAG()
+            rag_system = PuterRAGSystem()
             rag_system.vector_db_manager = Mock()
             rag_system.vector_db_manager.build_vector_database.return_value = True
             
@@ -213,7 +213,7 @@ class TestRAGSystemIntegration:
 
     def test_similarity_search_accuracy(self, mock_vectordb, sample_documents):
         """Test accuracy of similarity search results"""
-        from src.oran_nephio_rag import VectorDatabaseManager
+        from src.oran_nephio_rag_fixed import SimplifiedVectorDatabase
         
         # Setup mock to return relevant documents
         mock_vectordb.similarity_search_with_score.return_value = [
@@ -277,9 +277,9 @@ class TestPerformanceBenchmarks:
     
     def test_query_response_time(self, benchmark, mock_vectordb):
         """Benchmark query response time"""
-        from src.oran_nephio_rag import QueryProcessor
+        from src.oran_nephio_rag_fixed import PuterRAGSystem
         
-        processor = QueryProcessor()
+        system = PuterRAGSystem()
         processor.vectordb = mock_vectordb
         
         with patch('langchain_anthropic.ChatAnthropic') as mock_claude:

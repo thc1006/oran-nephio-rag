@@ -13,13 +13,13 @@ def create_minimal_database():
     print("[*] Creating minimal vector database for testing...")
     
     try:
-        from oran_nephio_rag import VectorDatabaseManager
+        from oran_nephio_rag_fixed import PuterRAGSystem
         from config import Config
         from langchain.docstore.document import Document
         
         # Initialize components
         config = Config()
-        vector_manager = VectorDatabaseManager(config)
+        rag_system = PuterRAGSystem(config)
         
         # Create sample documents about O-RAN and Nephio
         sample_docs = [
@@ -92,32 +92,40 @@ def create_minimal_database():
         
         print(f"[+] Created {len(sample_docs)} sample documents")
         
-        # Build vector database
-        print("[*] Building vector database...")
-        success = vector_manager.build_vector_database(sample_docs)
+        # Add sample documents to the system's vector database
+        print("[*] Adding documents to vector database...")
+        rag_system.vectordb.add_documents(sample_docs)
         
-        if success:
-            print("[+] Minimal vector database created successfully!")
+        # Save the database to the expected location
+        print("[*] Saving vector database...")
+        rag_system.vectordb.save()
+        
+        print("[+] Minimal vector database created successfully!")
+        
+        # Test loading
+        print("[*] Testing database loading...")
+        if rag_system.load_existing_database():
+            print("[+] Database loading successful!")
             
-            # Test loading
-            print("[*] Testing database loading...")
-            if vector_manager.load_existing_database():
-                print("[+] Database loading successful!")
+            # Setup QA chain
+            print("[*] Setting up QA chain...")
+            if rag_system.setup_qa_chain():
+                print("[+] QA chain setup successful!")
                 
                 # Test similarity search
                 print("[*] Testing similarity search...")
-                results = vector_manager.search_similar("What is Nephio?", k=2)
+                results = rag_system.vectordb.similarity_search("What is Nephio?", k=2)
                 print(f"[+] Found {len(results)} similar documents")
                 
-                for i, (doc, score) in enumerate(results, 1):
+                for i, doc in enumerate(results, 1):
                     print(f"   {i}. {doc.metadata.get('description', 'Unknown')}")
                 
                 return True
             else:
-                print("[-] Database loading failed")
+                print("[-] QA chain setup failed")
                 return False
         else:
-            print("[-] Database creation failed")
+            print("[-] Database loading failed")
             return False
             
     except Exception as e:

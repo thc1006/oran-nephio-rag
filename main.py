@@ -164,7 +164,8 @@ def main() -> int:
         # 初始化 RAG 系統
         logger.info("初始化 RAG 系統...")
         print("[*] Initializing RAG system...")
-        rag_system = ORANNephioRAG()
+        config = Config()
+        rag_system = ORANNephioRAG(config)
 
         # 載入向量資料庫
         logger.info("載入向量資料庫...")
