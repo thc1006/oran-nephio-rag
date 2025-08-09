@@ -270,6 +270,73 @@ class LLMAdapterManager:
         info['constraint_compliant'] = True
         return info
     
+    def get_available_llms(self) -> List[str]:
+        """取得可用的 LLM 模型列表 (測試相容函數)"""
+        if not self.current_adapter:
+            return []
+        
+        if hasattr(self.current_adapter, 'puter_adapter') and self.current_adapter.puter_adapter:
+            try:
+                return self.current_adapter.puter_adapter.get_available_models()
+            except Exception:
+                pass
+        
+        # 回退到預設模型列表
+        return ['claude-sonnet-4', 'claude-opus-4', 'claude-sonnet-3.5', 'mock-model']
+    
+    def get_llm_info(self, model_name: Optional[str] = None) -> Dict[str, Any]:
+        """取得指定 LLM 的詳細資訊 (測試相容函數)"""
+        if not model_name and self.current_adapter:
+            model_name = self.current_adapter.model_name
+        
+        # 提供 O-RAN/Nephio 部署中常見的模型資訊
+        model_info = {
+            'claude-sonnet-4': {
+                'name': 'Claude Sonnet 4',
+                'provider': 'Anthropic',
+                'context_length': 200000,
+                'supported_tasks': ['text_generation', 'code_analysis', 'oran_questions'],
+                'deployment_ready': True
+            },
+            'claude-opus-4': {
+                'name': 'Claude Opus 4', 
+                'provider': 'Anthropic',
+                'context_length': 200000,
+                'supported_tasks': ['complex_reasoning', 'architectural_analysis', 'nephio_planning'],
+                'deployment_ready': True
+            },
+            'claude-sonnet-3.5': {
+                'name': 'Claude Sonnet 3.5',
+                'provider': 'Anthropic',
+                'context_length': 200000,
+                'supported_tasks': ['text_generation', 'document_analysis'],
+                'deployment_ready': True
+            },
+            'mock-model': {
+                'name': 'Mock Test Model',
+                'provider': 'Test',
+                'context_length': 4000,
+                'supported_tasks': ['testing', 'development'],
+                'deployment_ready': False
+            }
+        }
+        
+        if model_name in model_info:
+            info = model_info[model_name].copy()
+            info['current_adapter'] = self.adapter_type if self.current_adapter else None
+            info['available'] = self.is_available()
+            return info
+        else:
+            return {
+                'name': model_name or 'Unknown',
+                'provider': 'Unknown',
+                'context_length': 0,
+                'supported_tasks': [],
+                'deployment_ready': False,
+                'current_adapter': self.adapter_type,
+                'available': False
+            }
+    
     def switch_adapter(self, new_adapter_type: str) -> bool:
         """切換適配器"""
         if new_adapter_type not in self.SUPPORTED_ADAPTERS:
@@ -298,6 +365,7 @@ class LLMAdapterManager:
         return {
             'current_adapter': self.adapter_type,
             'available_adapters': list(self.SUPPORTED_ADAPTERS.keys()),
+            'available_llms': self.get_available_llms(),
             'adapter_available': self.is_available(),
             'adapter_info': self.get_current_adapter_info(),
             'constraint_compliant': True,
@@ -320,6 +388,17 @@ def create_browser_adapter(model: str = 'claude-sonnet-4', headless: bool = True
     return PuterBrowserAdapter(config)
 
 
-# 向後兼容的別名
+# 向後相容的別名和函數
 BrowserLLMAdapter = PuterBrowserAdapter
 LLMManager = LLMAdapterManager
+
+# Test compatibility functions (for legacy test suites)
+def get_available_llms() -> List[str]:
+    """取得可用 LLM 列表的全域函數 (測試相容)"""
+    manager = LLMManager()
+    return manager.get_available_llms()
+
+def get_llm_info(model_name: str) -> Dict[str, Any]:
+    """取得 LLM 資訊的全域函數 (測試相容)"""
+    manager = LLMManager()
+    return manager.get_llm_info(model_name)

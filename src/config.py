@@ -46,6 +46,12 @@ class Config:
     # Puter.js 模型設定
     PUTER_MODEL = os.getenv("PUTER_MODEL", "claude-sonnet-4")
     
+    # ============ 向後相容性配置 (測試需要) ============
+    # 為了保持與舊測試的相容性，提供 CLAUDE_MODEL 屬性
+    CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", os.getenv("PUTER_MODEL", "claude-3-sonnet-20240229"))
+    CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", os.getenv("MAX_TOKENS", "4000")))
+    CLAUDE_TEMPERATURE = float(os.getenv("CLAUDE_TEMPERATURE", os.getenv("TEMPERATURE", "0.1")))
+    
     # ============ 向量資料庫設定 ============
     VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./oran_nephio_vectordb")
     EMBEDDINGS_CACHE_PATH = os.getenv("EMBEDDINGS_CACHE_PATH", "./embeddings_cache")
@@ -90,6 +96,10 @@ class Config:
     # ============ 安全性設定 ============
     VERIFY_SSL = os.getenv("VERIFY_SSL", "true").lower() == "true"  # 驗證 SSL 憑證
     SSL_TIMEOUT = int(os.getenv("SSL_TIMEOUT", "30"))  # SSL 連線超時時間
+    
+    # ============ Anthropic API 設定 (測試相容) ============
+    # 為測試提供 API 金鑰，但實際運行時使用瀏覽器自動化
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
     
     # ============ Monitoring Configuration ============
     JAEGER_AGENT_HOST = os.getenv("JAEGER_AGENT_HOST", "localhost")
@@ -203,8 +213,14 @@ class Config:
             if not (0 <= cls.TEMPERATURE <= 1):
                 errors.append("TEMPERATURE 必須在 0-1 之間")
             
+            if not (0 <= cls.CLAUDE_TEMPERATURE <= 1):
+                errors.append("CLAUDE_TEMPERATURE 必須在 0-1 之間")
+            
             if cls.MAX_TOKENS < 100:
                 errors.append("MAX_TOKENS 不能少於 100")
+                
+            if cls.CLAUDE_MAX_TOKENS < 100:
+                errors.append("CLAUDE_MAX_TOKENS 不能少於 100")
             
             if cls.CHUNK_SIZE < 100:
                 errors.append("CHUNK_SIZE 不能少於 100")
@@ -319,6 +335,7 @@ class Config:
         summary = {
             "api_mode": cls.API_MODE,
             "puter_model": cls.PUTER_MODEL,
+            "claude_model": cls.CLAUDE_MODEL,  # 加入向後相容性
             "browser_headless": cls.BROWSER_HEADLESS,
             "browser_timeout": cls.BROWSER_TIMEOUT,
             "vector_db_path": cls.VECTOR_DB_PATH,
@@ -331,7 +348,9 @@ class Config:
             "chunk_size": cls.CHUNK_SIZE,
             "chunk_overlap": cls.CHUNK_OVERLAP,
             "max_tokens": cls.MAX_TOKENS,
+            "claude_max_tokens": cls.CLAUDE_MAX_TOKENS,  # 加入向後相容性
             "temperature": cls.TEMPERATURE,
+            "claude_temperature": cls.CLAUDE_TEMPERATURE,  # 加入向後相容性
             "constraint_compliant": True,
             "integration_method": "browser_automation"
         }
