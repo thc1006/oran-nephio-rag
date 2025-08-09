@@ -30,6 +30,7 @@ logs/
 .mcp
 oran_nephio_vectordb/
 .claude
+CLAUDE.md
 
 # Cache directories
 embeddings_cache/
