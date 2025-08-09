@@ -265,8 +265,8 @@ class TestVectorDatabaseErrorHandling:
         """Test handling of vector dimension mismatches"""
         embeddings = mock_huggingface_embeddings
         
-        # Configure mock to return wrong dimensions
-        embeddings.embed_query.return_value = [0.1, 0.2, 0.3]  # Only 3 dimensions
+        # Configure mock to return wrong dimensions - override side_effect
+        embeddings.embed_query = MagicMock(return_value=[0.1, 0.2, 0.3])  # Only 3 dimensions
         
         vector = embeddings.embed_query("test")
         

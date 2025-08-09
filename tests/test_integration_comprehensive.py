@@ -99,17 +99,17 @@ class TestRAGSystemIntegration:
             mock_claude.return_value.invoke.return_value.content = f"Response for: {query}"
             
             system = PuterRAGSystem()
-            processor.vectordb = mock_vectordb
-            processor._setup_qa_chain()
+            system.vectordb = mock_vectordb
+            system.setup_qa_chain()
             
-            result = processor.process_query(query)
+            result = system.query(query)
             
             assert result is not None
             assert any(keyword.lower() in result.lower() for keyword in expected_keywords)
 
     def test_error_handling_and_recovery(self, mock_config):
         """Test system behavior under error conditions"""
-        from src.oran_nephio_rag import ORANNephioRAG
+        from src.oran_nephio_rag_fixed import PuterRAGSystem
         
         # Test with invalid API key
         with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'invalid-key'}):
@@ -124,7 +124,7 @@ class TestRAGSystemIntegration:
         from src.oran_nephio_rag_fixed import PuterRAGSystem
         
         system = PuterRAGSystem()
-        processor.vectordb = mock_vectordb
+        system.vectordb = mock_vectordb
         
         queries = [
             "What is Nephio?",
@@ -141,7 +141,7 @@ class TestRAGSystemIntegration:
             results = []
             for query in queries:
                 try:
-                    result = processor.process_query(query)
+                    result = system.query(query)
                     results.append(result)
                 except Exception as e:
                     results.append(str(e))
@@ -152,9 +152,9 @@ class TestRAGSystemIntegration:
 
     def test_system_status_monitoring(self, mock_system_status):
         """Test system status and health monitoring"""
-        from src.oran_nephio_rag import ORANNephioRAG
+        from src.oran_nephio_rag_fixed import PuterRAGSystem
         
-        with patch.object(ORANNephioRAG, 'get_system_status', return_value=mock_system_status):
+        with patch.object(PuterRAGSystem, 'get_system_status', return_value=mock_system_status):
             rag_system = PuterRAGSystem()
             status = rag_system.get_system_status()
             
@@ -167,14 +167,15 @@ class TestRAGSystemIntegration:
 
     def test_database_update_workflow(self, mock_vectordb, sample_documents):
         """Test database update and synchronization"""
-        from src.oran_nephio_rag import ORANNephioRAG
+        from src.oran_nephio_rag_fixed import PuterRAGSystem
         
         with patch('src.document_loader.DocumentLoader') as mock_loader:
             mock_loader.return_value.load_documents.return_value = sample_documents
             
             rag_system = PuterRAGSystem()
-            rag_system.vector_db_manager = Mock()
-            rag_system.vector_db_manager.build_vector_database.return_value = True
+            rag_system.vectordb = Mock()
+            rag_system.vectordb.add_documents = Mock()
+            rag_system.vectordb.save = Mock(return_value=True)
             
             result = rag_system.update_database()
             assert result is True
@@ -216,13 +217,13 @@ class TestRAGSystemIntegration:
         from src.oran_nephio_rag_fixed import SimplifiedVectorDatabase
         
         # Setup mock to return relevant documents
-        mock_vectordb.similarity_search_with_score.return_value = [
-            (sample_documents[0], 0.95),  # High relevance
-            (sample_documents[1], 0.85),  # Medium relevance
+        mock_vectordb.similarity_search.return_value = [
+            sample_documents[0],  # High relevance
+            sample_documents[1],  # Medium relevance
         ]
         
-        manager = VectorDatabaseManager()
-        manager.vectordb = mock_vectordb
+        manager = SimplifiedVectorDatabase("test.json")
+        manager.documents = mock_vectordb.documents if hasattr(mock_vectordb, 'documents') else []
         
         # Test search functionality (would need to implement this method)
         # results = manager.search("Nephio architecture")
@@ -280,13 +281,13 @@ class TestPerformanceBenchmarks:
         from src.oran_nephio_rag_fixed import PuterRAGSystem
         
         system = PuterRAGSystem()
-        processor.vectordb = mock_vectordb
+        system.vectordb = mock_vectordb
         
         with patch('langchain_anthropic.ChatAnthropic') as mock_claude:
             mock_claude.return_value.invoke.return_value.content = "Mock response"
             
             # Benchmark the query processing
-            result = benchmark(processor.process_query, "Test query")
+            result = benchmark(system.query, "Test query")
             assert result is not None
 
     def test_document_loading_performance(self, benchmark):

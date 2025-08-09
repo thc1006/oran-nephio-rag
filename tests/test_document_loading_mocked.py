@@ -46,7 +46,7 @@ class TestHTTPMocking:
     def test_responses_library_integration(self, mock_http_responses):
         """Test using responses library with mock data"""
         # Setup responses using helper
-        from conftest import setup_responses_mock
+        from tests.conftest import setup_responses_mock
         setup_responses_mock(mock_http_responses)
         
         import requests

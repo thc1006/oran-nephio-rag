@@ -200,7 +200,7 @@ class TestPuterIntegrationUtilities:
     
     def test_mock_puter_query_success_helper(self, sample_rag_query):
         """Test the mock query success helper function"""
-        from conftest import mock_puter_query_success
+        from tests.conftest import mock_puter_query_success
         
         question = sample_rag_query['question']
         result = mock_puter_query_success(question, stream=True)
@@ -213,7 +213,7 @@ class TestPuterIntegrationUtilities:
     
     def test_mock_puter_query_error_helper(self):
         """Test the mock query error helper function"""
-        from conftest import mock_puter_query_error
+        from tests.conftest import mock_puter_query_error
         
         result = mock_puter_query_error("Connection timeout")
         

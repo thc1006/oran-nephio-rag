@@ -147,15 +147,13 @@ class TestPuterRAGSystemIntegration:
         mock_query_processor_instance = MagicMock()
         mock_query_processor.return_value = mock_query_processor_instance
         
-        rag = ORANNephioRAG()
+        rag = PuterRAGSystem()
         
-        assert rag.document_loader == mock_doc_loader_instance
-        assert rag.vector_manager == mock_vector_manager_instance
-        assert rag.query_processor == mock_query_processor_instance
-        assert rag.vectordb is None
-        assert rag.qa_chain is None
-        assert rag._last_update is None
-        assert isinstance(rag._initialization_time, datetime)
+        assert rag.config is not None
+        assert rag.vectordb is not None
+        assert rag.text_splitter is not None
+        assert rag.puter_manager is not None
+        assert rag.retriever is None
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
     @patch('src.oran_nephio_rag_fixed.DocumentLoader')
@@ -179,30 +177,24 @@ class TestPuterRAGSystemIntegration:
         
         mock_query_processor.return_value = MagicMock()
         
-        rag = ORANNephioRAG()
+        rag = PuterRAGSystem()
+        rag.vectordb.add_documents = MagicMock()
+        rag.vectordb.save = MagicMock()
+        
         result = rag.build_vector_database()
         
         assert result is True
-        assert rag.vectordb == mock_vectordb
-        assert rag._last_update is not None
         mock_doc_loader_instance.load_all_documents.assert_called_once()
-        mock_vector_manager_instance.build_vector_database.assert_called_once_with(test_docs)
+        rag.vectordb.add_documents.assert_called()
+        rag.vectordb.save.assert_called_once()
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
-    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager') 
-    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
-    def test_query_success(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
+    @patch('src.oran_nephio_rag_fixed.create_puter_rag_manager')
+    def test_query_success(self, mock_create_puter):
         """測試成功查詢"""
         # 設定 mocks
-        mock_doc_loader.return_value = MagicMock()
-        mock_vector_manager.return_value = MagicMock()
-        
-        mock_query_processor_instance = MagicMock()
-        mock_query_processor.return_value = mock_query_processor_instance
-        
-        # 設定 QA 鏈
-        mock_qa_chain = MagicMock()
+        mock_puter_manager = MagicMock()
+        mock_create_puter.return_value = mock_puter_manager
         from langchain.docstore.document import Document
         test_source_docs = [
             Document(
@@ -215,76 +207,67 @@ class TestPuterRAGSystemIntegration:
             )
         ]
         
-        mock_qa_result = {
-            "result": "This is a test answer about Nephio scaling.",
-            "source_documents": test_source_docs
+        mock_puter_result = {
+            "answer": "This is a test answer about Nephio scaling.",
+            "model": "claude-sonnet-4"
         }
-        mock_qa_chain.return_value = mock_qa_result
+        mock_puter_manager.query.return_value = mock_puter_result
         
-        rag = ORANNephioRAG()
-        rag.qa_chain = mock_qa_chain
+        rag = PuterRAGSystem()
+        rag.retriever = MagicMock()
+        rag.retriever.similarity_search.return_value = test_source_docs
+        rag.puter_manager = MagicMock()
+        rag.puter_manager.query.return_value = {
+            "answer": "This is a test answer about Nephio scaling.",
+            "model": "claude-sonnet-4"
+        }
         
         result = rag.query("Test question")
         
         assert "answer" in result
         assert "sources" in result
-        assert "timestamp" in result
-        assert result["answer"] == mock_qa_result["result"]
+        assert "query_time" in result
+        assert result["answer"] == "This is a test answer about Nephio scaling."
         assert len(result["sources"]) == 1
         assert result["sources"][0]["url"] == "https://test.com"
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
-    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager')
-    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
-    def test_query_not_ready(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
+    @patch('src.oran_nephio_rag_fixed.create_puter_rag_manager')
+    def test_query_not_ready(self, mock_create_puter):
         """測試系統未準備就緒時的查詢"""
-        mock_doc_loader.return_value = MagicMock()
-        mock_vector_manager.return_value = MagicMock()
-        mock_query_processor.return_value = MagicMock()
+        mock_create_puter.return_value = MagicMock()
         
-        rag = ORANNephioRAG()
-        # 不設定 qa_chain，模擬未準備就緒狀態
+        rag = PuterRAGSystem()
+        # 不設定 retriever，模擬未準備就緒狀態
+        rag.retriever = None
         
         result = rag.query("Test question")
         
         assert "error" in result
-        assert result["error"] == "qa_chain_not_ready"
+        assert result["error"] == "system_not_ready"
         assert "系統尚未準備就緒" in result["answer"]
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
-    @patch('src.oran_nephio_rag_fixed.DocumentLoader')
-    @patch('src.oran_nephio_rag_fixed.VectorDatabaseManager')
-    @patch('src.oran_nephio_rag_fixed.QueryProcessor')
-    def test_get_system_status(self, mock_query_processor, mock_vector_manager, mock_doc_loader):
+    @patch('src.oran_nephio_rag_fixed.create_puter_rag_manager')
+    def test_get_system_status(self, mock_create_puter):
         """測試取得系統狀態"""
         # 設定 mocks
-        mock_doc_loader_instance = MagicMock()
-        mock_doc_loader.return_value = mock_doc_loader_instance
-        mock_doc_loader_instance.get_load_statistics.return_value = {
-            "success_rate": 85.5,
-            "total_attempts": 10
-        }
+        mock_puter_manager = MagicMock()
+        mock_puter_manager.get_status.return_value = {"status": "active"}
+        mock_create_puter.return_value = mock_puter_manager
         
-        mock_vector_manager.return_value = MagicMock()
-        mock_query_processor.return_value = MagicMock()
-        
-        rag = ORANNephioRAG()
-        rag.vectordb = MagicMock()  # 模擬已載入的向量資料庫
-        rag.qa_chain = MagicMock()  # 模擬已設定的問答鏈
-        
-        # 模擬向量資料庫資訊
-        mock_collection = {"ids": ["id1", "id2", "id3"]}
-        rag.vectordb.get.return_value = mock_collection
+        rag = PuterRAGSystem()
+        rag.vectordb.documents = [{"id": "1"}, {"id": "2"}, {"id": "3"}]  # 模擬已載入的向量資料庫
+        rag.retriever = MagicMock()  # 模擬已設定的檢索器
         
         status = rag.get_system_status()
         
         assert isinstance(status, dict)
         assert status["vectordb_ready"] is True
         assert status["qa_chain_ready"] is True
-        assert "initialization_time" in status
-        assert "load_statistics" in status
-        assert status["load_statistics"]["success_rate"] == 85.5
+        assert "last_update" in status
+        assert status["total_documents"] == 3
+        assert "puter_integration" in status
 
 @skip_if_no_heavy_deps
 class TestUtilityFunctions:
@@ -346,15 +329,12 @@ class TestRAGSystemIntegration:
             shutil.rmtree(self.temp_dir)
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key-123'})
-    @patch('src.oran_nephio_rag_fixed.HuggingFaceEmbeddings')
-    @patch('src.oran_nephio_rag_fixed.ChatAnthropic')
     @patch('src.oran_nephio_rag_fixed.DocumentLoader')
-    @patch('src.oran_nephio_rag_fixed.Chroma')
-    def test_full_workflow(self, mock_chroma, mock_doc_loader, mock_claude, mock_embeddings):
+    @patch('src.oran_nephio_rag_fixed.create_puter_rag_manager')
+    def test_full_workflow(self, mock_create_puter, mock_doc_loader):
         """測試完整工作流程"""
         # 設定所有 mocks
-        mock_embeddings.return_value = MagicMock()
-        mock_claude.return_value = MagicMock()
+        mock_create_puter.return_value = MagicMock()
         
         # 文件載入器 mock
         mock_doc_loader_instance = MagicMock()
@@ -368,16 +348,9 @@ class TestRAGSystemIntegration:
             )
         ]
         mock_doc_loader_instance.load_all_documents.return_value = test_docs
-        mock_doc_loader_instance.get_load_statistics.return_value = {"success_rate": 100}
-        
-        # 向量資料庫 mock
-        mock_vectordb = MagicMock()
-        mock_chroma.from_documents.return_value = mock_vectordb
-        mock_chroma.return_value = mock_vectordb
-        mock_vectordb.get.return_value = {"ids": ["id1"]}
         
         # 建立 RAG 系統並執行完整流程
-        rag = ORANNephioRAG()
+        rag = PuterRAGSystem()
         
         # 1. 建立向量資料庫
         build_result = rag.build_vector_database()
@@ -394,7 +367,6 @@ class TestRAGSystemIntegration:
         
         # 驗證 mocks 被正確調用
         mock_doc_loader_instance.load_all_documents.assert_called()
-        mock_chroma.from_documents.assert_called()
 
 if __name__ == "__main__":
     pytest.main([__file__])
