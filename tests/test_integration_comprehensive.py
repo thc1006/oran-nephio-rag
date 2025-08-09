@@ -62,7 +62,7 @@ class TestRAGSystemIntegration:
             assert result is True
             
     @responses.activate
-    def test_document_loading_pipeline(self, mock_document_sources, mock_http_responses):
+    def test_document_loading_pipeline(self, mock_document_sources, mock_http_responses, mock_config):
         """Test complete document loading pipeline"""
         # Setup HTTP mocks
         for url, response_data in mock_http_responses.items():
@@ -75,16 +75,14 @@ class TestRAGSystemIntegration:
             )
         
         from src.document_loader import DocumentLoader
-        from src.config import Config
         
-        # Mock config to return our test sources
-        with patch.object(Config, 'get_enabled_sources', return_value=mock_document_sources):
-            loader = DocumentLoader()
-            documents = loader.load_documents()
-            
-            assert len(documents) > 0
-            assert all(doc.page_content for doc in documents)
-            assert all(doc.metadata.get('source') for doc in documents)
+        # Create loader with mock config to use test-friendly settings
+        loader = DocumentLoader(mock_config)
+        documents = loader.load_all_documents(mock_document_sources)
+        
+        assert len(documents) > 0
+        assert all(doc.page_content for doc in documents)
+        assert all(doc.metadata.get('source_url') for doc in documents)
 
     @pytest.mark.parametrize("query,expected_keywords", [
         ("How to scale O-RAN network functions?", ["scale", "oran", "network"]),

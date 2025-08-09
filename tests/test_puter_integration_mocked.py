@@ -142,7 +142,7 @@ class TestPuterBrowserIntegration:
 class TestPuterRAGManager:
     """Test PuterRAGManager with mocked dependencies"""
     
-    @patch('src.api_adapters.PuterClaudeAdapter')
+    @patch('src.puter_integration.PuterClaudeAdapter')
     def test_rag_manager_initialization(self, mock_adapter_class, mock_puter_adapter):
         """Test RAG manager initialization"""
         from src.puter_integration import PuterRAGManager
