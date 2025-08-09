@@ -224,7 +224,7 @@ class DocumentLoader:
         self.max_retries = self.config.MAX_RETRIES
         self.timeout = self.config.REQUEST_TIMEOUT
         
-        # Don't initialize session here - use lazy initialization
+        # Initialize session as simple attribute, not property
         self._session = None
         
         # 初始化內容清理器
@@ -246,7 +246,11 @@ class DocumentLoader:
     
     @property
     def session(self) -> requests.Session:
-        """Lazy initialization of HTTP session to allow proper test mocking"""
+        """Get the HTTP session, creating it lazily if needed"""
+        return self._get_session()
+    
+    def _get_session(self) -> requests.Session:
+        """Get or create the HTTP session lazily"""
         if self._session is None:
             self._session = requests.Session()
             
@@ -346,7 +350,7 @@ class DocumentLoader:
     def _make_request(self, url: str) -> requests.Response:
         """發送 HTTP 請求"""
         try:
-            response = self.session.get(
+            response = self._get_session().get(
                 url,
                 timeout=self.timeout,
                 allow_redirects=True,
@@ -822,7 +826,7 @@ class DocumentLoader:
     def __del__(self):
         """清理資源"""
         try:
-            if hasattr(self, '_session') and self._session is not None:
+            if self._session is not None:
                 self._session.close()
         except Exception as e:
             logger.debug(f"資源清理失敗: {e}")

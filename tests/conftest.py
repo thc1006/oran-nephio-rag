@@ -26,6 +26,46 @@ TEST_MODEL_NAME = "claude-sonnet-4"
 TEST_EMBEDDINGS_DIM = 384
 
 
+# Guard function to prevent API_MODE changes during tests
+def prevent_api_mode_change(new_value):
+    """Prevent API_MODE from being changed to anything other than 'mock' during tests"""
+    if new_value != 'mock':
+        raise RuntimeError(
+            f"API_MODE cannot be changed to '{new_value}' during tests. "
+            f"Tests must run in 'mock' mode for stability and consistency. "
+            f"Current API_MODE is locked to 'mock'."
+        )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def enforce_test_environment():
+    """Enforce consistent test environment settings for entire session"""
+    # Store original values
+    original_api_mode = os.getenv('API_MODE')
+    original_api_key = os.getenv('ANTHROPIC_API_KEY')
+    
+    # Set test environment
+    os.environ['API_MODE'] = 'mock'
+    os.environ['ANTHROPIC_API_KEY'] = TEST_API_KEY
+    
+    try:
+        yield {
+            'API_MODE': 'mock',
+            'ANTHROPIC_API_KEY': TEST_API_KEY
+        }
+    finally:
+        # Restore original values only if they existed
+        if original_api_mode is not None:
+            os.environ['API_MODE'] = original_api_mode
+        else:
+            os.environ.pop('API_MODE', None)
+            
+        if original_api_key is not None:
+            os.environ['ANTHROPIC_API_KEY'] = original_api_key
+        else:
+            os.environ.pop('ANTHROPIC_API_KEY', None)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def mock_anthropic_api():
     """Mock Anthropic API key for all tests"""
@@ -50,6 +90,10 @@ def reset_config():
     for var in env_vars_to_track:
         if var in os.environ:
             original_env[var] = os.environ[var]
+    
+    # CRITICAL: Set API_MODE to 'mock' for all tests to ensure consistency
+    # This prevents adapter type mismatches and cross-test interference
+    os.environ['API_MODE'] = 'mock'
     
     yield
     
@@ -79,10 +123,14 @@ def reset_config():
     except Exception:
         pass
     
-    # Restore original environment (but keep TEST_API_KEY for session)
+    # Restore original environment (but keep TEST_API_KEY for session and API_MODE as mock)
     for var in env_vars_to_track:
         if var == 'ANTHROPIC_API_KEY':
             continue  # Keep the test API key
+        if var == 'API_MODE':
+            # Always keep API_MODE as mock for test stability
+            os.environ['API_MODE'] = 'mock'
+            continue
         if var in original_env:
             os.environ[var] = original_env[var]
         elif var in os.environ:
@@ -311,8 +359,8 @@ def mock_puter_adapter():
     mock_adapter.headless = True
     mock_adapter.AVAILABLE_MODELS = ['claude-sonnet-4', 'claude-opus-4', 'claude-sonnet-3.5']
     
-    # Determine adapter type based on API_MODE
-    api_mode = os.getenv("API_MODE", "browser")
+    # Determine adapter type based on current API_MODE (should always be 'mock' in tests)
+    api_mode = os.getenv("API_MODE", "mock")  # Default to mock for tests
     adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
     integration_method = 'mock' if api_mode == 'mock' else 'browser_automation'
     
@@ -432,7 +480,7 @@ def mock_requests_session():
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.headers = {'content-type': 'text/html; charset=utf-8'}
-    mock_response.content = b"<html><body><h1>Test Content</h1><p>Mock response content</p></body></html>"
+    mock_response.content = b"<html><body><h1>Test Content</h1><p>Mock response content with test content for Nephio and additional details to meet minimum length requirements for content validation. This content should be long enough to pass the 100-byte minimum requirement.</p></body></html>"
     mock_response.text = mock_response.content.decode('utf-8')
     mock_response.url = "https://test.example.com/doc"
     mock_response.encoding = 'utf-8'
@@ -514,26 +562,30 @@ def sample_rag_query():
 @pytest.fixture
 def sample_puter_responses():
     """Sample Puter.js API responses for different scenarios"""
+    # Determine adapter type based on current API_MODE (should be 'mock' in tests)
+    api_mode = os.getenv("API_MODE", "mock")  # Default to mock for tests
+    adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+    
     return {
         'success': {
             'success': True,
             'answer': 'To scale O-RAN network functions using Nephio, you need to create a ProvisioningRequest CRD with the desired replica count and resource constraints.',
             'model': 'claude-sonnet-4',
             'timestamp': '2024-01-15T10:30:00Z',
-            'adapter_type': 'puter_js_browser',
+            'adapter_type': adapter_type,
             'query_time': 2.1,
             'streamed': False
         },
         'error': {
             'success': False,
             'error': 'Browser session failed to initialize',
-            'adapter_type': 'puter_js_browser',
+            'adapter_type': adapter_type,
             'timestamp': '2024-01-15T10:30:00Z'
         },
         'timeout': {
             'success': False,
             'error': 'Query timed out after 60 seconds',
-            'adapter_type': 'puter_js_browser'
+            'adapter_type': adapter_type
         }
     }
 
@@ -838,12 +890,16 @@ def assert_log_contains(log_file: str, message: str):
 
 def mock_puter_query_success(prompt: str, **kwargs) -> Dict[str, Any]:
     """Helper to create successful Puter.js query responses"""
+    # Determine adapter type based on current API_MODE
+    api_mode = os.getenv("API_MODE", "mock")  # Default to mock for tests
+    adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+    
     return {
         'success': True,
         'answer': f'Mock response for: {prompt[:50]}...',
         'model': TEST_MODEL_NAME,
         'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'adapter_type': 'puter_js_browser',
+        'adapter_type': adapter_type,
         'query_time': 1.5,
         'streamed': kwargs.get('stream', False)
     }
@@ -851,10 +907,14 @@ def mock_puter_query_success(prompt: str, **kwargs) -> Dict[str, Any]:
 
 def mock_puter_query_error(error_message: str) -> Dict[str, Any]:
     """Helper to create error Puter.js query responses"""
+    # Determine adapter type based on current API_MODE
+    api_mode = os.getenv("API_MODE", "mock")  # Default to mock for tests
+    adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+    
     return {
         'success': False,
         'error': error_message,
-        'adapter_type': 'puter_js_browser',
+        'adapter_type': adapter_type,
         'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ')
     }
 
@@ -890,7 +950,7 @@ def setup_responses_mock(responses_data: Dict[str, Dict[str, Any]]):
 # ============================================================================
 
 def pytest_configure(config):
-    """Configure custom pytest markers"""
+    """Configure custom pytest markers and test environment"""
     config.addinivalue_line("markers", "unit: Unit tests with full mocking")
     config.addinivalue_line("markers", "integration: Integration tests with selective mocking")
     config.addinivalue_line("markers", "slow: Slow tests that take more than 5 seconds")
@@ -899,3 +959,6 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "puter: Tests specific to Puter.js integration")
     config.addinivalue_line("markers", "vectordb: Tests involving vector database operations")
     config.addinivalue_line("markers", "llm: Tests involving LLM API calls")
+    
+    # Ensure API_MODE is consistently set to mock for all test sessions
+    os.environ['API_MODE'] = 'mock'

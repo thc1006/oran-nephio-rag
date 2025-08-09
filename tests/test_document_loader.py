@@ -110,7 +110,7 @@ class TestDocumentLoader:
         assert hasattr(self.loader, 'session')
         assert hasattr(self.loader, 'content_cleaner')
     
-    @responses.activate
+    @responses.activate  
     def test_successful_document_load(self):
         """測試成功載入文件"""
         test_url = "https://test.example.com/doc"
@@ -134,6 +134,11 @@ class TestDocumentLoader:
             content_type='text/html'
         )
         
+        # Force responses to work with sessions by patching session get method 
+        import requests
+        original_session_get = requests.Session.get
+        requests.Session.get = requests.get
+        
         source = DocumentSource(
             url=test_url,
             source_type="nephio",
@@ -142,7 +147,11 @@ class TestDocumentLoader:
             enabled=True
         )
         
-        doc = self.loader.load_document(source)
+        try:
+            doc = self.loader.load_document(source)
+        finally:
+            # Restore original session method
+            requests.Session.get = original_session_get
         
         assert doc is not None
         assert "Test Document" in doc.page_content

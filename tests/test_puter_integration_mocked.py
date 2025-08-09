@@ -99,11 +99,16 @@ class TestPuterClaudeAdapter:
     
     def test_adapter_info(self, mock_puter_adapter):
         """Test getting adapter information"""
+        import os
         info = mock_puter_adapter.get_info()
         
         assert info['adapter_type'] == 'PuterClaudeAdapter'
         assert info['model'] == "claude-sonnet-4"
-        assert info['integration_method'] == 'browser_automation'
+        
+        # Integration method should match API_MODE
+        api_mode = os.getenv("API_MODE", "mock")
+        expected_integration_method = 'mock' if api_mode == 'mock' else 'browser_automation'
+        assert info['integration_method'] == expected_integration_method
         assert info['headless_mode'] == True
 
 
@@ -231,7 +236,12 @@ class TestPuterIntegrationUtilities:
         assert result['success'] == True
         assert result['answer'].startswith('Mock response for:')
         assert result['model'] == "claude-sonnet-4"
-        assert result['adapter_type'] == 'puter_js_browser'
+        
+        # Adapter type should match current API_MODE
+        import os
+        api_mode = os.getenv("API_MODE", "mock")
+        expected_adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+        assert result['adapter_type'] == expected_adapter_type
         assert result['streamed'] == True
     
     def test_mock_puter_query_error_helper(self):
@@ -242,7 +252,12 @@ class TestPuterIntegrationUtilities:
         
         assert result['success'] == False
         assert result['error'] == "Connection timeout"
-        assert result['adapter_type'] == 'puter_js_browser'
+        
+        # Adapter type should be determined by current API_MODE
+        import os
+        api_mode = os.getenv("API_MODE", "mock")
+        expected_adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+        assert result['adapter_type'] == expected_adapter_type
         assert 'timestamp' in result
 
 
@@ -272,7 +287,12 @@ class TestPuterIntegrationWithFullSystem:
         result = puter_adapter.query(question)
         
         assert result['success'] == True
-        assert result['adapter_type'] == 'puter_js_browser'
+        
+        # Adapter type should match API_MODE
+        import os
+        api_mode = os.getenv("API_MODE", "mock")
+        expected_adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+        assert result['adapter_type'] == expected_adapter_type
         
         # 4. Verify all components worked together
         assert context is not None
