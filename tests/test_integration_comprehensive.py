@@ -26,6 +26,18 @@ skip_if_no_heavy_deps = pytest.mark.skipif(
     reason="Requires NLTK and SciPy dependencies which have compatibility issues"
 )
 
+# Skip marker for tests requiring pytest-benchmark
+try:
+    import pytest_benchmark
+    BENCHMARK_AVAILABLE = True
+except ImportError:
+    BENCHMARK_AVAILABLE = False
+
+skip_if_no_benchmark = pytest.mark.skipif(
+    not BENCHMARK_AVAILABLE,
+    reason="requires pytest-benchmark plugin which may not be installed"
+)
+
 # Test markers for categorization  
 pytestmark = [
     pytest.mark.integration,
@@ -141,8 +153,7 @@ class TestRAGSystemIntegration:
             "Edge computing with Nephio"
         ]
         
-        with patch('langchain_anthropic.ChatAnthropic') as mock_claude:
-            mock_claude.return_value.invoke.return_value.content = "Mock response"
+        with patch('src.puter_integration.PuterRAGManager.query', return_value={"answer": "Mock response"}):
             
             # Simulate concurrent processing
             results = []
@@ -283,22 +294,25 @@ class TestAsyncOperations:
 class TestPerformanceBenchmarks:
     """Performance testing and benchmarking"""
     
+    @skip_if_no_benchmark
     def test_query_response_time(self, benchmark, mock_vectordb):
         """Benchmark query response time"""
+        
         from src.oran_nephio_rag_fixed import PuterRAGSystem
         
         system = PuterRAGSystem()
         system.vectordb = mock_vectordb
         
-        with patch('langchain_anthropic.ChatAnthropic') as mock_claude:
-            mock_claude.return_value.invoke.return_value.content = "Mock response"
+        with patch('src.puter_integration.PuterRAGManager.query', return_value={"answer": "Mock response"}):
             
             # Benchmark the query processing
             result = benchmark(system.query, "Test query")
             assert result is not None
 
+    @skip_if_no_benchmark
     def test_document_loading_performance(self, benchmark):
         """Benchmark document loading performance"""
+        
         from src.document_loader import DocumentContentCleaner
         
         cleaner = DocumentContentCleaner()

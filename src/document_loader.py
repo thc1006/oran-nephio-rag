@@ -362,8 +362,8 @@ class DocumentLoader:
         if 'text/html' not in content_type:
             logger.warning(f"非 HTML 內容類型: {content_type}")
         
-        # 檢查內容長度
-        content_length = len(response.content)
+        # 檢查內容長度 - 使用 response.text 以支援模擬回應
+        content_length = len(response.text or "")
         if content_length < self.config.MIN_CONTENT_LENGTH:
             raise ValueError(f"回應內容太短 ({content_length} bytes，最少需要 {self.config.MIN_CONTENT_LENGTH} bytes)")
         
