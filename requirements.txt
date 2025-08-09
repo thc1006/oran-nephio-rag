@@ -30,6 +30,7 @@ langchain-community>=0.0.20,<0.4.0
 
 # Text processing
 nltk>=3.8,<4.0.0
+scikit-learn>=1.3.0,<1.6.0  # For TfidfVectorizer and cosine similarity
 
 # Scheduling and automation
 schedule>=1.2.0,<2.0.0

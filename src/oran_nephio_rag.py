@@ -47,6 +47,53 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class DummyEmbeddings:
+    """
+    简易嵌入模型，當 scikit-learn 不可用時使用
+    提供基本的文本向量化功能，與 ChromaDB 兼容
+    """
+    
+    def __init__(self):
+        self.dimension = 384  # Standard embedding dimension
+        
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """為文檔創建向量表示"""
+        embeddings = []
+        for text in texts:
+            # Simple hash-based embedding (not semantically meaningful but functional)
+            import hashlib
+            
+            # Create a simple hash-based vector
+            text_bytes = text.encode('utf-8')
+            hash_obj = hashlib.md5(text_bytes)
+            hash_hex = hash_obj.hexdigest()
+            
+            # Convert hash to fixed-size vector
+            vector = []
+            for i in range(0, min(len(hash_hex), self.dimension // 16)):
+                try:
+                    # Convert hex pairs to float values between -1 and 1
+                    hex_pair = hash_hex[i*2:i*2+2] if i*2+1 < len(hash_hex) else hash_hex[i*2:i*2+1] + '0'
+                    int_val = int(hex_pair, 16)
+                    float_val = (int_val / 128.0) - 1.0  # Normalize to [-1, 1]
+                    vector.append(float_val)
+                except ValueError:
+                    vector.append(0.0)
+            
+            # Pad or trim to exact dimension
+            while len(vector) < self.dimension:
+                vector.append(0.0)
+            vector = vector[:self.dimension]
+            
+            embeddings.append(vector)
+        
+        return embeddings
+    
+    def embed_query(self, text: str) -> List[float]:
+        """為查詢創建向量表示"""
+        return self.embed_documents([text])[0]
+
+
 class VectorDatabaseManager:
     """向量資料庫管理器"""
     
@@ -64,20 +111,31 @@ class VectorDatabaseManager:
             cache_dir = self.config.EMBEDDINGS_CACHE_PATH
             os.makedirs(cache_dir, exist_ok=True)
             
-            # 使用 TF-IDF 向量化器作為輕量級替代方案
-            self.embeddings = TfidfVectorizer(
-                max_features=5000,  # 限制特徵數量以節省記憶體
-                stop_words='english',
-                ngram_range=(1, 2),  # 使用 1-gram 和 2-gram
-                min_df=2,  # 忽略出現次數少於2的詞
-                max_df=0.8  # 忽略出現在超過80%文檔中的詞
-            )
-            
-            logger.info("✅ 輕量級嵌入模型 (TF-IDF) 載入成功")
+            if SKLEARN_AVAILABLE:
+                # 使用 TF-IDF 向量化器作為輕量級替代方案
+                self.embeddings = TfidfVectorizer(
+                    max_features=5000,  # 限制特徵數量以節省記憶體
+                    stop_words='english',
+                    ngram_range=(1, 2),  # 使用 1-gram 和 2-gram
+                    min_df=2,  # 忽略出現次數少於2的詞
+                    max_df=0.8  # 忽略出現在超過80%文檔中的詞
+                )
+                
+                logger.info("✅ 輕量級嵌入模型 (TF-IDF) 載入成功")
+            else:
+                # Fallback: Use a simple dummy embeddings class that works with ChromaDB
+                self.embeddings = DummyEmbeddings()
+                logger.warning("⚠️ scikit-learn 不可用，使用簡易嵌入模型 (功能受限)")
             
         except Exception as e:
             logger.error(f"❌ 嵌入模型載入失敗: {e}")
-            raise
+            # Fallback to dummy embeddings if TfidfVectorizer fails
+            try:
+                self.embeddings = DummyEmbeddings()
+                logger.warning("⚠️ 回退至簡易嵌入模型")
+            except Exception as fallback_error:
+                logger.error(f"❌ 回退嵌入模型也失敗: {fallback_error}")
+                raise
     
     def _setup_text_splitter(self):
         """設定文字分割器"""
@@ -204,6 +262,7 @@ class QueryProcessor:
     def __init__(self, config: Optional[Config] = None):
         self.config = config or Config()
         self.puter_manager = None
+        self.qa_chain = None  # Initialize as None (using Puter.js mode instead)
         self._setup_puter_integration()
     
     def _setup_puter_integration(self):
