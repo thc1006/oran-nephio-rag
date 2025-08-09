@@ -77,6 +77,7 @@ dist/
 coverage.xml
 htmlcov/
 .pytest_cache/
+.mcp.json
 
 # Archives (often large)
 *.zip

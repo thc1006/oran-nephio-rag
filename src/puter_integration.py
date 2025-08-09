@@ -10,14 +10,27 @@ import json
 import tempfile
 import os
 from typing import Dict, Any, Optional, List
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from contextlib import contextmanager
+
+# Only import Selenium if not in mock mode
+API_MODE = os.getenv("API_MODE", "browser")
+
+if API_MODE != "mock":
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+        SELENIUM_AVAILABLE = True
+    except ImportError as e:
+        SELENIUM_AVAILABLE = False
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Selenium dependencies not available: {e}")
+else:
+    SELENIUM_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +61,17 @@ class PuterClaudeAdapter:
         self.model = model
         self.headless = headless
         self.driver = None
-        self._html_template = self._create_html_template()
+        self.mock_mode = API_MODE == "mock"
+        
+        if self.mock_mode:
+            logger.info("Running in mock mode - browser initialization skipped")
+        else:
+            if not SELENIUM_AVAILABLE:
+                raise RuntimeError(
+                    "Selenium dependencies required for browser mode but not available. "
+                    "Install with: pip install selenium webdriver-manager"
+                )
+            self._html_template = self._create_html_template()
         
     def _create_html_template(self) -> str:
         """Create HTML template with Puter.js integration"""
@@ -241,7 +264,7 @@ class PuterClaudeAdapter:
     
     def query(self, prompt: str, stream: bool = False, timeout: int = 60) -> Dict[str, Any]:
         """
-        Query Claude via Puter.js browser integration
+        Query Claude via Puter.js browser integration or mock response
         
         Args:
             prompt: The question/prompt to send to Claude
@@ -251,6 +274,9 @@ class PuterClaudeAdapter:
         Returns:
             Dict containing response, model info, and metadata
         """
+        if self.mock_mode:
+            return self._mock_query(prompt, stream)
+            
         with self._browser_session():
             try:
                 # Execute the query via JavaScript
@@ -315,8 +341,37 @@ class PuterClaudeAdapter:
                     'adapter_type': 'puter_js_browser'
                 }
     
+    def _mock_query(self, prompt: str, stream: bool = False) -> Dict[str, Any]:
+        """
+        Mock query response for testing without browser
+        """
+        logger.info(f"Mock query: {prompt[:100]}...")
+        
+        # Generate a basic mock response
+        mock_response = f"Mock response to: '{prompt[:50]}...'"
+        if "nephio" in prompt.lower():
+            mock_response = "This is a mock response about Nephio network function orchestration."
+        elif "oran" in prompt.lower() or "o-ran" in prompt.lower():
+            mock_response = "This is a mock response about O-RAN architecture and components."
+        
+        return {
+            'answer': mock_response,
+            'model': self.model,
+            'timestamp': time.time(),
+            'success': True,
+            'adapter_type': 'puter_js_mock',
+            'query_time': 0.1,
+            'streamed': stream
+        }
+    
     def is_available(self) -> bool:
         """Check if Puter.js integration is available"""
+        if self.mock_mode:
+            return True
+            
+        if not SELENIUM_AVAILABLE:
+            return False
+            
         try:
             with self._browser_session():
                 # Test if Puter.js is loaded
@@ -338,9 +393,11 @@ class PuterClaudeAdapter:
             'adapter_type': 'PuterClaudeAdapter',
             'model': self.model,
             'available_models': self.AVAILABLE_MODELS,
-            'integration_method': 'browser_automation',
+            'integration_method': 'mock' if self.mock_mode else 'browser_automation',
             'tutorial_source': 'https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/',
-            'headless_mode': self.headless
+            'headless_mode': self.headless,
+            'mock_mode': self.mock_mode,
+            'selenium_available': SELENIUM_AVAILABLE
         }
 
 
@@ -358,8 +415,20 @@ class PuterRAGManager:
             model: Claude model to use
             headless: Whether to run browser in headless mode
         """
-        self.adapter = PuterClaudeAdapter(model=model, headless=headless)
-        logger.info(f"PuterRAGManager initialized with model: {model}")
+        # Check API_MODE before initializing browser components
+        if API_MODE == "mock":
+            logger.info("Running in mock mode - browser initialization skipped")
+        
+        try:
+            self.adapter = PuterClaudeAdapter(model=model, headless=headless)
+            logger.info(f"PuterRAGManager initialized with model: {model} (mode: {API_MODE})")
+        except RuntimeError as e:
+            if "Selenium dependencies" in str(e):
+                logger.error(f"Browser initialization failed: {e}")
+                logger.info("Consider setting API_MODE=mock for browser-free operation")
+                raise
+            else:
+                raise
     
     def query(self, prompt: str, context: str = "", **kwargs) -> Dict[str, Any]:
         """
@@ -393,12 +462,15 @@ Please provide a comprehensive answer based primarily on the provided context, a
     
     def get_status(self) -> Dict[str, Any]:
         """Get manager status"""
+        adapter_info = self.adapter.get_info()
         return {
-            'integration_type': 'puter_js_browser',
+            'integration_type': 'puter_js_mock' if API_MODE == "mock" else 'puter_js_browser',
             'adapter_available': self.adapter.is_available(),
-            'adapter_info': self.adapter.get_info(),
+            'adapter_info': adapter_info,
             'constraint_compliant': True,
-            'tutorial_source': 'https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/'
+            'tutorial_source': 'https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/',
+            'api_mode': API_MODE,
+            'selenium_available': SELENIUM_AVAILABLE
         }
 
 

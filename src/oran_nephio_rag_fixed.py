@@ -10,6 +10,9 @@ import shutil
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
+# Get API mode from environment
+API_MODE = os.getenv("API_MODE", "browser")
+
 # Core libraries for text processing
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -157,11 +160,29 @@ class PuterRAGSystem:
         db_file = os.path.join(self.config.VECTOR_DB_PATH, "simplified_vectordb.json")
         self.vectordb = SimplifiedVectorDatabase(db_file)
         
-        # 設定 Puter.js 管理器
-        model = getattr(self.config, 'PUTER_MODEL', 'claude-sonnet-4')
-        self.puter_manager = create_puter_rag_manager(model=model, headless=True)
-        
-        logger.info("✅ Puter.js RAG 系統組件初始化完成")
+        # 設定 Puter.js 管理器 (考慮 mock 模式)
+        if API_MODE == "mock":
+            logger.info("Mock mode - initializing without browser dependencies")
+            try:
+                model = getattr(self.config, 'PUTER_MODEL', 'claude-sonnet-4')
+                self.puter_manager = create_puter_rag_manager(model=model, headless=True)
+                logger.info("✅ Puter.js RAG 系統組件初始化完成 (mock 模式)")
+            except Exception as e:
+                logger.warning(f"Puter manager initialization failed in mock mode: {e}")
+                self.puter_manager = None
+        else:
+            # 正常瀏覽器模式
+            model = getattr(self.config, 'PUTER_MODEL', 'claude-sonnet-4')
+            try:
+                self.puter_manager = create_puter_rag_manager(model=model, headless=True)
+                logger.info("✅ Puter.js RAG 系統組件初始化完成")
+            except RuntimeError as e:
+                if "Selenium dependencies" in str(e):
+                    logger.error(f"Browser initialization failed: {e}")
+                    logger.info("Falling back to mock mode for browser-free operation")
+                    self.puter_manager = None
+                else:
+                    raise
     
     def build_vector_database(self) -> bool:
         """建立向量資料庫"""
@@ -236,6 +257,21 @@ class PuterRAGSystem:
             # 1. 檢索相關文檔
             relevant_docs = self.retriever.similarity_search(question, k=self.config.RETRIEVER_K)
             
+            # Handle case when puter_manager is not available (mock mode fallback)
+            if not self.puter_manager:
+                # Generate a mock response without browser
+                mock_answer = self._generate_mock_response(question, relevant_docs)
+                end_time = time.time()
+                return {
+                    "answer": mock_answer,
+                    "sources": self._format_sources(relevant_docs),
+                    "query_time": round(end_time - start_time, 2),
+                    "mode": "mock_rag",
+                    "model": "mock",
+                    "integration_type": "mock",
+                    "constraint_compliant": True
+                }
+            
             if not relevant_docs:
                 # 如果沒有找到相關文檔，直接查詢
                 result = self.puter_manager.query(question)
@@ -249,16 +285,7 @@ class PuterRAGSystem:
             end_time = time.time()
             
             # 4. 處理來源文檔
-            sources = []
-            for doc in relevant_docs:
-                metadata = doc.metadata
-                sources.append({
-                    "url": metadata.get("source_url", ""),
-                    "type": metadata.get("source_type", ""),
-                    "description": metadata.get("description", ""),
-                    "title": metadata.get("title", ""),
-                    "content_preview": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
-                })
+            sources = self._format_sources(relevant_docs)
             
             # 5. 返回結果
             response = {
@@ -284,13 +311,40 @@ class PuterRAGSystem:
                 "answer": f"查詢處理時發生錯誤: {str(e)}"
             }
     
+    def _generate_mock_response(self, question: str, relevant_docs: List) -> str:
+        """Generate a mock response for testing without browser"""
+        if not relevant_docs:
+            return f"Mock response: Unable to find specific information about '{question}' in the knowledge base. This is a mock response for testing purposes."
+        
+        # Create a simple response based on the retrieved documents
+        context_preview = relevant_docs[0].page_content[:200] if relevant_docs else ""
+        return f"Mock response based on retrieved context: {context_preview}... This is a mock response for testing purposes."
+    
+    def _format_sources(self, relevant_docs: List) -> List[Dict[str, Any]]:
+        """Format sources from relevant documents"""
+        sources = []
+        for doc in relevant_docs:
+            metadata = doc.metadata
+            sources.append({
+                "url": metadata.get("source_url", ""),
+                "type": metadata.get("source_type", ""),
+                "description": metadata.get("description", ""),
+                "title": metadata.get("title", ""),
+                "content_preview": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
+            })
+        return sources
+        
     def get_system_status(self) -> Dict[str, Any]:
         """取得系統狀態"""
         try:
             vectordb_ready = len(self.vectordb.documents) > 0 if self.vectordb else False
             qa_chain_ready = self.retriever is not None
             
-            puter_status = self.puter_manager.get_status() if self.puter_manager else {}
+            puter_status = self.puter_manager.get_status() if self.puter_manager else {
+                "integration_type": "unavailable",
+                "adapter_available": False,
+                "api_mode": API_MODE
+            }
             
             return {
                 "vectordb_ready": vectordb_ready,
@@ -298,8 +352,9 @@ class PuterRAGSystem:
                 "puter_integration": puter_status,
                 "total_documents": len(self.vectordb.documents) if self.vectordb else 0,
                 "last_update": datetime.now().isoformat(),
-                "integration_type": "puter_js_browser",
-                "constraint_compliant": True
+                "integration_type": "mock" if API_MODE == "mock" else "puter_js_browser",
+                "constraint_compliant": True,
+                "api_mode": API_MODE
             }
             
         except Exception as e:

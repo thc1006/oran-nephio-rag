@@ -224,24 +224,8 @@ class DocumentLoader:
         self.max_retries = self.config.MAX_RETRIES
         self.timeout = self.config.REQUEST_TIMEOUT
         
-        # 初始化 HTTP 會話
-        self.session = requests.Session()
-        
-        # 設定請求標頭
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none'
-        })
-        
-        # 設定會話配置
-        self.session.max_redirects = 5
+        # Don't initialize session here - use lazy initialization
+        self._session = None
         
         # 初始化內容清理器
         try:
@@ -259,6 +243,30 @@ class DocumentLoader:
         }
         
         logger.debug("文件載入器初始化完成")
+    
+    @property
+    def session(self) -> requests.Session:
+        """Lazy initialization of HTTP session to allow proper test mocking"""
+        if self._session is None:
+            self._session = requests.Session()
+            
+            # 設定請求標頭
+            self._session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none'
+            })
+            
+            # 設定會話配置
+            self._session.max_redirects = 5
+            
+        return self._session
     
     def load_document(self, source: DocumentSource) -> Optional[Document]:
         """載入單一文件來源"""
@@ -814,8 +822,8 @@ class DocumentLoader:
     def __del__(self):
         """清理資源"""
         try:
-            if hasattr(self, 'session'):
-                self.session.close()
+            if hasattr(self, '_session') and self._session is not None:
+                self._session.close()
         except Exception as e:
             logger.debug(f"資源清理失敗: {e}")
 

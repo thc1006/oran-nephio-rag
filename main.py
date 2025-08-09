@@ -8,6 +8,9 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+# Get API mode from environment
+API_MODE = os.getenv("API_MODE", "browser")
+
 # 確保可以導入 src 模組
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -70,6 +73,9 @@ def display_welcome() -> None:
     print("=" * 60)
     print("專注於 Network Function Scale-out & Scale-in 實作指導")
     print("所有回答基於官方文件，確保資訊的權威性和準確性")
+    if API_MODE == "mock":
+        print("\n[!] Running in MOCK mode - browser components disabled")
+        print("    Set API_MODE=browser to enable full functionality")
     print()
 
 def display_commands() -> None:
@@ -164,26 +170,53 @@ def main() -> int:
         # 初始化 RAG 系統
         logger.info("初始化 RAG 系統...")
         print("[*] Initializing RAG system...")
+        if API_MODE == "mock":
+            print("    [!] Mock mode enabled - browser initialization skipped")
+            
         config = Config()
-        rag_system = ORANNephioRAG(config)
+        
+        try:
+            rag_system = ORANNephioRAG(config)
+        except RuntimeError as e:
+            if "Selenium dependencies" in str(e):
+                print(f"[-] Browser initialization failed: {e}")
+                print("    Consider setting API_MODE=mock for browser-free operation")
+                print("    Or install Selenium: pip install selenium webdriver-manager")
+                return 1
+            else:
+                raise
 
         # 載入向量資料庫
         logger.info("載入向量資料庫...")
         print("[*] Loading vector database...")
-        if not rag_system.load_existing_database():
-            print("[-] Vector database loading failed")
-            logger.error("向量資料庫載入失敗")
+        try:
+            if not rag_system.load_existing_database():
+                print("[-] Vector database loading failed")
+                if API_MODE != "mock":
+                    print("    Try building the database with: python create_minimal_database.py")
+                logger.error("向量資料庫載入失敗")
+                return 1
+            print("[+] Vector database loaded successfully")
+        except Exception as e:
+            print(f"[-] Database loading error: {e}")
+            logger.error(f"Database loading error: {e}")
             return 1
-        print("[+] Vector database loaded successfully")
 
         # 設定問答鏈
         logger.info("設定問答鏈...")
         print("[*] Setting up Q&A chain...")
-        if not rag_system.setup_qa_chain():
-            print("[-] Q&A chain setup failed")
-            logger.error("問答鏈設定失敗")
+        try:
+            if not rag_system.setup_qa_chain():
+                print("[-] Q&A chain setup failed")
+                logger.error("問答鏈設定失敗")
+                return 1
+            print("[+] Q&A chain setup successfully")
+            if API_MODE == "mock":
+                print("    [!] Running in mock mode - responses will be simulated")
+        except Exception as e:
+            print(f"[-] Q&A chain setup error: {e}")
+            logger.error(f"Q&A chain setup error: {e}")
             return 1
-        print("[+] Q&A chain setup successfully")
 
         print("\n[+] System initialization complete!")
         display_commands()

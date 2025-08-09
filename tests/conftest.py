@@ -303,6 +303,7 @@ def mock_webdriver_manager():
 @pytest.fixture
 def mock_puter_adapter():
     """Mock PuterClaudeAdapter for browser automation testing"""
+    import os
     mock_adapter = MagicMock()
     
     # Mock adapter properties
@@ -310,13 +311,18 @@ def mock_puter_adapter():
     mock_adapter.headless = True
     mock_adapter.AVAILABLE_MODELS = ['claude-sonnet-4', 'claude-opus-4', 'claude-sonnet-3.5']
     
+    # Determine adapter type based on API_MODE
+    api_mode = os.getenv("API_MODE", "browser")
+    adapter_type = 'puter_js_mock' if api_mode == 'mock' else 'puter_js_browser'
+    integration_method = 'mock' if api_mode == 'mock' else 'browser_automation'
+    
     # Mock adapter methods
     mock_adapter.query.return_value = {
         'success': True,
         'answer': 'Based on the O-RAN and Nephio documentation, here is the information you requested...',
         'model': TEST_MODEL_NAME,
         'timestamp': '2024-01-15T10:30:00Z',
-        'adapter_type': 'puter_js_browser',
+        'adapter_type': adapter_type,
         'query_time': 2.5,
         'streamed': False
     }
@@ -327,8 +333,10 @@ def mock_puter_adapter():
         'adapter_type': 'PuterClaudeAdapter',
         'model': TEST_MODEL_NAME,
         'available_models': ['claude-sonnet-4', 'claude-opus-4'],
-        'integration_method': 'browser_automation',
-        'headless_mode': True
+        'integration_method': integration_method,
+        'headless_mode': True,
+        'mock_mode': api_mode == 'mock',
+        'selenium_available': api_mode != 'mock'
     }
     
     return mock_adapter

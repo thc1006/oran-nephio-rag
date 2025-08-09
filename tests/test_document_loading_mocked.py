@@ -76,6 +76,12 @@ class TestDocumentLoaderMocking:
         # Create loader
         loader = DocumentLoader(mock_config)
         
+        # Session should not be created yet due to lazy initialization
+        mock_session_class.assert_not_called()
+        
+        # Access the session property to trigger lazy initialization
+        session = loader.session
+        
         # Verify session was created
         mock_session_class.assert_called_once()
         
