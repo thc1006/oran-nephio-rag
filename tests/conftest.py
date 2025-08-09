@@ -8,6 +8,7 @@ import shutil
 import os
 import json
 import time
+import importlib
 from unittest.mock import patch, MagicMock, Mock, PropertyMock
 from typing import Generator, Dict, Any, List, Optional
 import responses
@@ -30,6 +31,62 @@ def mock_anthropic_api():
     """Mock Anthropic API key for all tests"""
     with patch.dict(os.environ, {'ANTHROPIC_API_KEY': TEST_API_KEY}):
         yield TEST_API_KEY
+
+
+@pytest.fixture(autouse=True)
+def reset_config():
+    """Reset configuration between tests to prevent state leakage"""
+    import sys
+    
+    # Store original environment variables that might affect config
+    original_env = {}
+    env_vars_to_track = [
+        'ANTHROPIC_API_KEY', 'API_MODE', 'BROWSER_HEADLESS', 
+        'BROWSER_TIMEOUT', 'BROWSER_WAIT_TIME', 'PUTER_MODEL',
+        'CLAUDE_MODEL', 'CLAUDE_TEMPERATURE', 'VECTOR_DB_PATH',
+        'EMBEDDINGS_CACHE_PATH', 'LOG_LEVEL'
+    ]
+    
+    for var in env_vars_to_track:
+        if var in os.environ:
+            original_env[var] = os.environ[var]
+    
+    yield
+    
+    # After each test, clean up any module imports and reload config
+    modules_to_reload = [
+        'src.config', 
+        'src.document_loader', 
+        'src.oran_nephio_rag',
+        'src.oran_nephio_rag_fixed'
+    ]
+    
+    for module_name in modules_to_reload:
+        if module_name in sys.modules:
+            try:
+                importlib.reload(sys.modules[module_name])
+            except Exception:
+                # If reload fails, remove from modules to force fresh import
+                try:
+                    del sys.modules[module_name]
+                except KeyError:
+                    pass
+    
+    # Clear any cached instances or global state that might interfere
+    try:
+        import gc
+        gc.collect()  # Force garbage collection to clear any cached instances
+    except Exception:
+        pass
+    
+    # Restore original environment (but keep TEST_API_KEY for session)
+    for var in env_vars_to_track:
+        if var == 'ANTHROPIC_API_KEY':
+            continue  # Keep the test API key
+        if var in original_env:
+            os.environ[var] = original_env[var]
+        elif var in os.environ:
+            del os.environ[var]
 
 
 @pytest.fixture

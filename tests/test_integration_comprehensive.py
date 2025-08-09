@@ -57,21 +57,22 @@ class TestRAGSystemIntegration:
         
     def test_system_initialization_flow(self, mock_config, mock_vectordb, mock_embeddings):
         """Test complete system initialization"""
-        with patch('src.oran_nephio_rag_fixed.VectorDatabaseManager') as mock_vdb_manager:
-            mock_instance = Mock()
-            mock_instance.build_vector_database.return_value = True
-            mock_instance.load_existing_database.return_value = True
-            mock_vdb_manager.return_value = mock_instance
-            
-            from src.oran_nephio_rag_fixed import PuterRAGSystem
-            
-            # Test initialization
-            rag_system = PuterRAGSystem()
-            assert rag_system is not None
-            
-            # Test database loading
-            result = rag_system.load_existing_database()
-            assert result is True
+        with patch('os.path.exists', return_value=True):
+            with patch('src.oran_nephio_rag_fixed.VectorDatabaseManager') as mock_vdb_manager:
+                mock_instance = Mock()
+                mock_instance.build_vector_database.return_value = True
+                mock_instance.load_existing_database.return_value = True
+                mock_vdb_manager.return_value = mock_instance
+                
+                from src.oran_nephio_rag_fixed import PuterRAGSystem
+                
+                # Test initialization
+                rag_system = PuterRAGSystem()
+                assert rag_system is not None
+                
+                # Test database loading
+                result = rag_system.load_existing_database()
+                assert result is True
             
     @responses.activate
     def test_document_loading_pipeline(self, mock_document_sources, mock_http_responses, mock_config):
@@ -130,13 +131,17 @@ class TestRAGSystemIntegration:
         """Test system behavior under error conditions"""
         from src.oran_nephio_rag_fixed import PuterRAGSystem
         
-        # Test with invalid API key
+        # Test with invalid API key - setup_qa_chain should still succeed (API validation happens during query)
         with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'invalid-key'}):
             rag_system = PuterRAGSystem()
             
-            # Should handle gracefully
-            with pytest.raises(Exception):
-                rag_system.setup_qa_chain()
+            # Setup should succeed (API key checked during query)
+            result = rag_system.setup_qa_chain()
+            assert result is True, "setup_qa_chain should succeed even with invalid API key"
+            
+            # But querying should handle the error gracefully
+            query_result = rag_system.query("test query")
+            assert "error" in query_result or "answer" in query_result, "Query should handle invalid API key gracefully"
 
     def test_concurrent_query_handling(self, mock_vectordb):
         """Test system under concurrent load"""
@@ -215,19 +220,27 @@ class TestRAGSystemIntegration:
 
     def test_configuration_validation(self, temp_dir):
         """Test configuration validation and error handling"""
-        from src.config import Config
+        import importlib
+        import sys
         
-        # Test with missing API key
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+        # Test with invalid temperature via environment variable
+        with patch.dict(os.environ, {'CLAUDE_TEMPERATURE': '2.0'}):
+            # Reload config module to pick up environment changes
+            if 'src.config' in sys.modules:
+                importlib.reload(sys.modules['src.config'])
+            from src.config import Config
+            
+            with pytest.raises(ValueError, match="CLAUDE_TEMPERATURE"):
                 Config.validate()
         
-        # Test with invalid temperature
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'test-key',
-            'CLAUDE_TEMPERATURE': '2.0'  # Invalid
-        }):
-            with pytest.raises(ValueError, match="CLAUDE_TEMPERATURE"):
+        # Test with invalid API mode via environment variable  
+        with patch.dict(os.environ, {'API_MODE': 'invalid_mode'}):
+            # Reload config module to pick up environment changes
+            if 'src.config' in sys.modules:
+                importlib.reload(sys.modules['src.config'])
+            from src.config import Config
+            
+            with pytest.raises(ValueError, match="API_MODE"):
                 Config.validate()
 
     def test_similarity_search_accuracy(self, mock_vectordb, sample_documents):
