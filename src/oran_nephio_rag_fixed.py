@@ -168,7 +168,7 @@ class PuterRAGSystem:
         try:
             # 載入文檔
             loader = DocumentLoader(self.config)
-            documents = loader.load_all_documents()
+            documents = loader.load_all_documents(self.config.OFFICIAL_SOURCES)
             
             if not documents:
                 logger.error("沒有文檔可建立向量資料庫")

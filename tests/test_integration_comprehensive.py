@@ -93,8 +93,14 @@ class TestRAGSystemIntegration:
         """Test query processing with various inputs"""
         from src.oran_nephio_rag_fixed import PuterRAGSystem
         
-        with patch('langchain_anthropic.ChatAnthropic') as mock_claude:
-            mock_claude.return_value.invoke.return_value.content = f"Response for: {query}"
+        with patch('src.puter_integration.PuterRAGManager') as mock_puter_manager:
+            # Mock the Puter.js query response
+            mock_instance = mock_puter_manager.return_value
+            mock_instance.query.return_value = {
+                "answer": f"Response for: {query}",
+                "model": "claude-sonnet-4",
+                "success": True
+            }
             
             system = PuterRAGSystem()
             system.vectordb = mock_vectordb
@@ -103,7 +109,10 @@ class TestRAGSystemIntegration:
             result = system.query(query)
             
             assert result is not None
-            assert any(keyword.lower() in result.lower() for keyword in expected_keywords)
+            assert isinstance(result, dict)
+            assert "answer" in result
+            answer = result["answer"]
+            assert any(keyword.lower() in answer.lower() for keyword in expected_keywords)
 
     def test_error_handling_and_recovery(self, mock_config):
         """Test system behavior under error conditions"""
