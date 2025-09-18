@@ -1,0 +1,10 @@
+{
+  "default": [
+    {
+      "key": "project-context",
+      "value": "RAG of Nephio & O-RAN requirements",
+      "namespace": "default",
+      "timestamp": 1758222557003
+    }
+  ]
+}

@@ -1,0 +1,1050 @@
+openapi: 3.0.0
+info:
+  title: O-RAN × Nephio RAG API
+  description: |
+    Developer-friendly REST API for O-RAN and Nephio knowledge retrieval using advanced RAG (Retrieval-Augmented Generation) technology.
+
+    This API provides intelligent Q&A capabilities for telecommunications and cloud-native network functions,
+    specialized for O-RAN (Open Radio Access Network) and Nephio platform documentation.
+
+    ## Features
+    - 🤖 **AI-Powered Q&A**: Advanced natural language processing for technical queries
+    - 📚 **Official Documentation**: Automated ingestion from O-RAN Alliance and Nephio sources
+    - 🔍 **Semantic Search**: High-precision vector-based document retrieval
+    - ⚡ **Multiple Deployment Modes**: Browser automation, mock testing, and local inference
+    - 📊 **Comprehensive Monitoring**: Built-in metrics, logging, and health checks
+    - 🔒 **Enterprise Security**: Authentication, rate limiting, and audit trails
+
+    ## Getting Started
+    1. Set up your API mode (browser/mock) in environment variables
+    2. Initialize the vector database with official documentation
+    3. Start making queries to get intelligent answers about O-RAN and Nephio
+
+    ## Rate Limiting
+    - Query endpoints: 10 requests per minute per IP
+    - Search endpoints: 20 requests per minute per IP
+    - Bulk operations: 2 requests per minute per IP
+
+    ## Authentication
+    API key authentication is required for production deployments.
+    Include your API key in the `Authorization` header: `Bearer YOUR_API_KEY`
+  version: 1.0.0
+  contact:
+    name: O-RAN × Nephio RAG Support
+    email: hctsai@linux.com
+    url: https://github.com/thc1006/oran-nephio-rag
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.oran-nephio-rag.example.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+tags:
+  - name: Health
+    description: System health and status monitoring
+  - name: Queries
+    description: RAG query processing and Q&A functionality
+  - name: Documents
+    description: Document management and vector database operations
+  - name: System
+    description: System administration and configuration
+
+paths:
+  /:
+    get:
+      tags: [Health]
+      summary: API Root
+      description: Get basic API information and available endpoints
+      operationId: getApiRoot
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+              example:
+                success: true
+                message: "O-RAN × Nephio RAG API"
+                data:
+                  version: "1.0.0"
+                  docs: "/docs"
+                  health: "/health"
+                  api: "/api/v1"
+                timestamp: "2025-01-15T10:30:00Z"
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Health Check
+      description: Check system health and component status
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                version: "1.0.0"
+                uptime: 3600.5
+                components:
+                  database: "healthy"
+                  vector_db: "healthy"
+                  api: "healthy"
+                  memory: "healthy"
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness Check
+      description: Check if system is ready to serve requests
+      operationId: getReadiness
+      security: []
+      responses:
+        '200':
+          description: System is ready
+        '503':
+          description: System is not ready
+
+  /api/v1/query:
+    post:
+      tags: [Queries]
+      summary: Query RAG System
+      description: |
+        Process natural language questions and return AI-generated answers based on O-RAN and Nephio documentation.
+
+        This endpoint uses advanced retrieval-augmented generation to provide accurate, context-aware responses
+        about telecommunications and cloud-native network functions.
+
+        **Example queries:**
+        - "What is the O-RAN architecture?"
+        - "How does Nephio support network function lifecycle management?"
+        - "What is O2IMS and its role in O-RAN?"
+        - "How to implement scale-out for DU functions?"
+      operationId: queryRag
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              basic_query:
+                summary: Basic O-RAN question
+                value:
+                  query: "What is the O-RAN architecture?"
+                  k: 5
+                  include_sources: true
+              nephio_query:
+                summary: Nephio deployment question
+                value:
+                  query: "How does Nephio handle network function scaling?"
+                  k: 8
+                  include_sources: true
+                  context_length: 6000
+              advanced_query:
+                summary: Advanced configuration query
+                value:
+                  query: "How to configure O2IMS integration with Nephio?"
+                  k: 10
+                  model: "claude-sonnet-4"
+                  include_sources: true
+                  context_length: 8000
+      responses:
+        '200':
+          description: Query processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+              example:
+                answer: "The O-RAN architecture is an open and intelligent Radio Access Network (RAN) architecture that disaggregates traditional RAN functions into standardized components..."
+                sources:
+                  - content: "O-RAN architecture enables network operators to deploy multi-vendor..."
+                    metadata:
+                      source_type: "oran_sc"
+                      url: "https://docs.o-ran-sc.org/en/latest/architecture/"
+                      title: "O-RAN Architecture Overview"
+                    similarity_score: 0.95
+                    source_type: "oran_sc"
+                    url: "https://docs.o-ran-sc.org/en/latest/architecture/"
+                query_time: 2.35
+                context_used: 5
+                retrieval_scores: [0.95, 0.92, 0.89, 0.85, 0.82]
+                generation_method: "browser_automation"
+                constraint_compliant: true
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "ValidationError"
+                message: "Query cannot be empty"
+                timestamp: "2025-01-15T10:30:00Z"
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/query/search:
+    post:
+      tags: [Queries]
+      summary: Search Documents
+      description: |
+        Perform semantic search in the vector database without generating answers.
+        Returns relevant documents with similarity scores.
+
+        Useful for:
+        - Finding specific documentation sections
+        - Exploring available content
+        - Building custom applications
+      operationId: searchDocuments
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+            examples:
+              basic_search:
+                summary: Basic search
+                value:
+                  query: "network function scaling"
+                  k: 10
+              filtered_search:
+                summary: Filtered search by source type
+                value:
+                  query: "Nephio deployment"
+                  k: 15
+                  source_types: ["nephio"]
+                  score_threshold: 0.7
+              priority_search:
+                summary: Search with priority filter
+                value:
+                  query: "O-RAN components"
+                  k: 20
+                  priority_range: [1, 2]
+                  score_threshold: 0.8
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid search request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/query/bulk:
+    post:
+      tags: [Queries]
+      summary: Bulk Query Processing
+      description: |
+        Process multiple queries in a single request for batch operations.
+        Useful for evaluation, testing, or bulk processing scenarios.
+
+        **Note:** This endpoint has lower rate limits due to resource intensity.
+      operationId: bulkQuery
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkQueryRequest'
+            example:
+              queries:
+                - "What is O-RAN?"
+                - "How does Nephio work?"
+                - "What is O2IMS?"
+              k: 5
+              include_sources: false
+      responses:
+        '200':
+          description: Bulk queries processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkQueryResponse'
+        '400':
+          description: Invalid bulk request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/documents:
+    get:
+      tags: [Documents]
+      summary: List Documents
+      description: Get a list of all documents in the vector database
+      operationId: listDocuments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: source_type
+          in: query
+          description: Filter by source type
+          schema:
+            type: string
+            enum: [nephio, oran_sc]
+        - name: enabled
+          in: query
+          description: Filter by enabled status
+          schema:
+            type: boolean
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+      responses:
+        '200':
+          description: Document list retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+
+    post:
+      tags: [Documents]
+      summary: Add Document
+      description: Add a new document source to the system
+      operationId: addDocument
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+            example:
+              url: "https://docs.nephio.org/docs/new-feature/"
+              source_type: "nephio"
+              description: "New Nephio feature documentation"
+              priority: 2
+              enabled: true
+      responses:
+        '201':
+          description: Document added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          description: Invalid document request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/documents/{document_id}:
+    get:
+      tags: [Documents]
+      summary: Get Document
+      description: Get details of a specific document
+      operationId: getDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Documents]
+      summary: Update Document
+      description: Update an existing document
+      operationId: updateDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+      responses:
+        '200':
+          description: Document updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Documents]
+      summary: Delete Document
+      description: Remove a document from the system
+      operationId: deleteDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Document deleted successfully
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/documents/refresh:
+    post:
+      tags: [Documents]
+      summary: Refresh Documents
+      description: Rebuild the vector database with latest documents
+      operationId: refreshDocuments
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDatabaseRequest'
+            example:
+              force_rebuild: true
+              source_types: ["nephio", "oran_sc"]
+      responses:
+        '200':
+          description: Database refresh completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateDatabaseResponse'
+
+  /api/v1/system/status:
+    get:
+      tags: [System]
+      summary: System Status
+      description: Get detailed system status and component health
+      operationId: getSystemStatus
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatusResponse'
+
+  /api/v1/system/config:
+    get:
+      tags: [System]
+      summary: Get Configuration
+      description: Get current system configuration
+      operationId: getConfig
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  /api/v1/system/metrics:
+    get:
+      tags: [System]
+      summary: Get Metrics
+      description: Get system performance metrics
+      operationId: getMetrics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+  /metrics:
+    get:
+      tags: [System]
+      summary: Prometheus Metrics
+      description: Get metrics in Prometheus format
+      operationId: getPrometheusMetrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP http_requests_total Total HTTP requests
+                # TYPE http_requests_total counter
+                http_requests_total{method="GET",endpoint="/health",status="200"} 42
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key authentication
+
+  schemas:
+    APIResponse:
+      type: object
+      required: [success, message, timestamp]
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+        message:
+          type: string
+          description: Response message
+        data:
+          type: object
+          description: Response data
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    ErrorResponse:
+      type: object
+      required: [success, error, message, timestamp]
+      properties:
+        success:
+          type: boolean
+          example: false
+          description: Always false for errors
+        error:
+          type: string
+          description: Error type
+          example: "ValidationError"
+        message:
+          type: string
+          description: Error message
+          example: "Query cannot be empty"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+    HealthResponse:
+      type: object
+      required: [status, version, uptime, components]
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          description: Overall health status
+        version:
+          type: string
+          description: API version
+        uptime:
+          type: number
+          description: Uptime in seconds
+        components:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [healthy, unhealthy, degraded]
+          description: Component health status
+
+    QueryRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: The question to ask the RAG system
+          example: "What is the O-RAN architecture?"
+        k:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+          description: Number of documents to retrieve
+        model:
+          type: string
+          description: Model to use for generation
+          example: "claude-sonnet-4"
+        stream:
+          type: boolean
+          default: false
+          description: Whether to stream the response
+        include_sources:
+          type: boolean
+          default: true
+          description: Whether to include source documents
+        context_length:
+          type: integer
+          minimum: 100
+          maximum: 8000
+          description: Maximum context length
+
+    SourceDocument:
+      type: object
+      required: [content, metadata]
+      properties:
+        content:
+          type: string
+          description: Document content excerpt
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Document metadata
+        similarity_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Similarity score
+        source_type:
+          type: string
+          enum: [nephio, oran_sc]
+          description: Source type
+        url:
+          type: string
+          format: uri
+          description: Source URL
+
+    QueryResponse:
+      type: object
+      required: [answer, sources, query_time, context_used, retrieval_scores, generation_method, constraint_compliant]
+      properties:
+        answer:
+          type: string
+          description: Generated answer
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceDocument'
+          description: Source documents used
+        query_time:
+          type: number
+          format: float
+          description: Query processing time in seconds
+        context_used:
+          type: integer
+          description: Number of context documents used
+        retrieval_scores:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Retrieval similarity scores
+        generation_method:
+          type: string
+          description: Method used for generation
+          enum: [browser_automation, mock, local]
+        constraint_compliant:
+          type: boolean
+          description: Whether response is constraint compliant
+
+    DocumentRequest:
+      type: object
+      required: [url, source_type, description]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Document URL
+        source_type:
+          type: string
+          enum: [nephio, oran_sc]
+          description: Source type
+        description:
+          type: string
+          description: Document description
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          description: Priority level (1=highest, 5=lowest)
+        enabled:
+          type: boolean
+          default: true
+          description: Whether document is enabled
+
+    DocumentResponse:
+      type: object
+      required: [id, url, source_type, description, priority, enabled, status]
+      properties:
+        id:
+          type: string
+          description: Document ID
+        url:
+          type: string
+          format: uri
+          description: Document URL
+        source_type:
+          type: string
+          description: Source type
+        description:
+          type: string
+          description: Document description
+        priority:
+          type: integer
+          description: Priority level
+        enabled:
+          type: boolean
+          description: Whether document is enabled
+        last_updated:
+          type: string
+          format: date-time
+          description: Last update time
+        content_length:
+          type: integer
+          description: Content length in characters
+        status:
+          type: string
+          enum: [active, processing, error, disabled]
+          description: Document status
+
+    DocumentListResponse:
+      type: object
+      required: [documents, total, enabled, by_source_type]
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentResponse'
+          description: List of documents
+        total:
+          type: integer
+          description: Total number of documents
+        enabled:
+          type: integer
+          description: Number of enabled documents
+        by_source_type:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count by source type
+
+    SystemStatusResponse:
+      type: object
+      required: [system_ready, vectordb_ready, qa_chain_ready, document_count, total_sources, enabled_sources, constraint_compliant, integration_method, uptime]
+      properties:
+        system_ready:
+          type: boolean
+          description: Whether system is ready
+        vectordb_ready:
+          type: boolean
+          description: Whether vector database is ready
+        qa_chain_ready:
+          type: boolean
+          description: Whether Q&A chain is ready
+        last_build_time:
+          type: string
+          format: date-time
+          description: Last database build time
+        document_count:
+          type: integer
+          description: Number of documents in database
+        total_sources:
+          type: integer
+          description: Total number of sources
+        enabled_sources:
+          type: integer
+          description: Number of enabled sources
+        constraint_compliant:
+          type: boolean
+          description: Whether system is constraint compliant
+        integration_method:
+          type: string
+          description: Integration method used
+        uptime:
+          type: number
+          description: System uptime in seconds
+
+    UpdateDatabaseRequest:
+      type: object
+      properties:
+        force_rebuild:
+          type: boolean
+          default: false
+          description: Whether to force rebuild
+        source_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Specific URLs to update
+        source_types:
+          type: array
+          items:
+            type: string
+            enum: [nephio, oran_sc]
+          description: Specific source types to update
+
+    UpdateDatabaseResponse:
+      type: object
+      required: [success, documents_processed, documents_added, documents_updated, processing_time, errors]
+      properties:
+        success:
+          type: boolean
+          description: Whether update was successful
+        documents_processed:
+          type: integer
+          description: Number of documents processed
+        documents_added:
+          type: integer
+          description: Number of documents added
+        documents_updated:
+          type: integer
+          description: Number of documents updated
+        processing_time:
+          type: number
+          description: Processing time in seconds
+        errors:
+          type: array
+          items:
+            type: string
+          description: Any errors encountered
+
+    SearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          description: Search query
+        filters:
+          type: object
+          additionalProperties: true
+          description: Search filters
+        source_types:
+          type: array
+          items:
+            type: string
+            enum: [nephio, oran_sc]
+          description: Filter by source types
+        priority_range:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+          description: Priority range [min, max]
+        k:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+          description: Number of results
+        score_threshold:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.0
+          description: Minimum similarity score
+
+    SearchResponse:
+      type: object
+      required: [results, total_found, query_time, filters_applied]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceDocument'
+          description: Search results
+        total_found:
+          type: integer
+          description: Total number of results found
+        query_time:
+          type: number
+          description: Search time in seconds
+        filters_applied:
+          type: object
+          additionalProperties: true
+          description: Filters that were applied
+
+    BulkQueryRequest:
+      type: object
+      required: [queries]
+      properties:
+        queries:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 10
+          description: List of queries to process
+        k:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+          description: Number of documents per query
+        include_sources:
+          type: boolean
+          default: false
+          description: Whether to include sources (affects performance)
+
+    BulkQueryResponse:
+      type: object
+      required: [results, total_processed, total_time, average_time]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryResponse'
+          description: Query results
+        total_processed:
+          type: integer
+          description: Total queries processed
+        total_time:
+          type: number
+          description: Total processing time
+        average_time:
+          type: number
+          description: Average time per query
+
+    ConfigResponse:
+      type: object
+      required: [api_mode, model_name, chunk_size, chunk_overlap, max_tokens, temperature, retriever_k, browser_headless, constraint_compliant]
+      properties:
+        api_mode:
+          type: string
+          description: API mode
+        model_name:
+          type: string
+          description: Model name
+        chunk_size:
+          type: integer
+          description: Chunk size
+        chunk_overlap:
+          type: integer
+          description: Chunk overlap
+        max_tokens:
+          type: integer
+          description: Maximum tokens
+        temperature:
+          type: number
+          description: Temperature setting
+        retriever_k:
+          type: integer
+          description: Default retriever K
+        browser_headless:
+          type: boolean
+          description: Browser headless mode
+        constraint_compliant:
+          type: boolean
+          description: Constraint compliance
+
+    MetricsResponse:
+      type: object
+      required: [requests_total, queries_total, average_query_time, success_rate, uptime, memory_usage]
+      properties:
+        requests_total:
+          type: integer
+          description: Total requests
+        queries_total:
+          type: integer
+          description: Total queries
+        average_query_time:
+          type: number
+          description: Average query time
+        success_rate:
+          type: number
+          description: Success rate
+        uptime:
+          type: number
+          description: Uptime in seconds
+        memory_usage:
+          type: object
+          additionalProperties:
+            type: number
+          description: Memory usage statistics

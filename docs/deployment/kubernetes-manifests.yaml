@@ -1,0 +1,649 @@
+# Kubernetes Deployment Manifests for O-RAN × Nephio RAG System
+# This file contains all necessary Kubernetes resources for deploying the system
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oran-nephio-rag
+  labels:
+    name: oran-nephio-rag
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/version: "1.0.0"
+
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oran-rag-config
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: config
+data:
+  API_MODE: "browser"
+  PUTER_MODEL: "claude-sonnet-4"
+  BROWSER_HEADLESS: "true"
+  BROWSER_TIMEOUT: "120"
+  BROWSER_WAIT_TIME: "10"
+  LOG_LEVEL: "INFO"
+  CHUNK_SIZE: "1024"
+  CHUNK_OVERLAP: "200"
+  MAX_TOKENS: "4000"
+  TEMPERATURE: "0.1"
+  RETRIEVER_K: "6"
+  RETRIEVER_FETCH_K: "15"
+  RETRIEVER_LAMBDA_MULT: "0.7"
+  VECTOR_DB_PATH: "/app/data/vectordb"
+  EMBEDDINGS_CACHE_PATH: "/app/data/embeddings"
+  COLLECTION_NAME: "oran_nephio_k8s"
+  AUTO_SYNC_ENABLED: "true"
+  SYNC_INTERVAL_HOURS: "24"
+  VERIFY_SSL: "true"
+  MAX_RETRIES: "3"
+  REQUEST_TIMEOUT: "30"
+  REQUEST_DELAY: "1.0"
+  API_HOST: "0.0.0.0"
+  API_PORT: "8000"
+  API_WORKERS: "4"
+  METRICS_PORT: "8000"
+
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oran-rag-secrets
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: secret
+type: Opaque
+data:
+  # Base64 encoded values - replace with actual encoded secrets
+  ANTHROPIC_API_KEY: ""  # echo -n "your-api-key" | base64
+  JWT_SECRET_KEY: ""     # echo -n "your-jwt-secret" | base64
+
+---
+# PersistentVolume for vector database
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: oran-rag-vectordb-pv
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: storage
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: fast-ssd
+  hostPath:
+    path: /mnt/oran-rag/vectordb
+    type: DirectoryOrCreate
+
+---
+# PersistentVolumeClaim for vector database
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oran-rag-vectordb-pvc
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+
+---
+# PersistentVolume for embeddings cache
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: oran-rag-embeddings-pv
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: storage
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: fast-ssd
+  hostPath:
+    path: /mnt/oran-rag/embeddings
+    type: DirectoryOrCreate
+
+---
+# PersistentVolumeClaim for embeddings cache
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oran-rag-embeddings-pvc
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: fast-ssd
+
+---
+# Deployment for the main application
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oran-rag-app
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: application
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oran-nephio-rag
+      app.kubernetes.io/component: application
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oran-nephio-rag
+        app.kubernetes.io/component: application
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: oran-rag
+        image: oran-rag:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: metrics
+          containerPort: 8000
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: oran-rag-config
+        - secretRef:
+            name: oran-rag-secrets
+        volumeMounts:
+        - name: vectordb-storage
+          mountPath: /app/data/vectordb
+        - name: embeddings-storage
+          mountPath: /app/data/embeddings
+        - name: logs-storage
+          mountPath: /app/logs
+        resources:
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+            ephemeral-storage: "2Gi"
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+            ephemeral-storage: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
+      volumes:
+      - name: vectordb-storage
+        persistentVolumeClaim:
+          claimName: oran-rag-vectordb-pvc
+      - name: embeddings-storage
+        persistentVolumeClaim:
+          claimName: oran-rag-embeddings-pvc
+      - name: logs-storage
+        emptyDir: {}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+
+---
+# Service for the main application
+apiVersion: v1
+kind: Service
+metadata:
+  name: oran-rag-service
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: application
+
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oran-rag-ingress
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "10"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - oran-rag.example.com
+    secretName: oran-rag-tls
+  rules:
+  - host: oran-rag.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: oran-rag-service
+            port:
+              number: 8000
+
+---
+# HorizontalPodAutoscaler for automatic scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: oran-rag-hpa
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oran-rag-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+      selectPolicy: Max
+
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: oran-rag-pdb
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oran-nephio-rag
+      app.kubernetes.io/component: application
+
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oran-rag-netpol
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: oran-nephio-rag
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  - {} # Allow all egress traffic
+
+---
+# ServiceMonitor for Prometheus monitoring
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: oran-rag-metrics
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oran-nephio-rag
+      app.kubernetes.io/component: service
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# Redis Deployment for caching (optional)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/component: cache
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/component: cache
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        emptyDir: {}
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+
+---
+# Job for database initialization
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oran-rag-db-init
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: init-job
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oran-nephio-rag
+        app.kubernetes.io/component: init-job
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: db-init
+        image: oran-rag:1.0.0
+        command: ["python", "create_minimal_database.py"]
+        envFrom:
+        - configMapRef:
+            name: oran-rag-config
+        - secretRef:
+            name: oran-rag-secrets
+        volumeMounts:
+        - name: vectordb-storage
+          mountPath: /app/data/vectordb
+        - name: embeddings-storage
+          mountPath: /app/data/embeddings
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: vectordb-storage
+        persistentVolumeClaim:
+          claimName: oran-rag-vectordb-pvc
+      - name: embeddings-storage
+        persistentVolumeClaim:
+          claimName: oran-rag-embeddings-pvc
+
+---
+# CronJob for periodic database updates
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: oran-rag-db-sync
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: sync-job
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: oran-nephio-rag
+            app.kubernetes.io/component: sync-job
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: db-sync
+            image: oran-rag:1.0.0
+            command: ["python", "-c", "from src import create_rag_system; rag = create_rag_system(); rag.build_database()"]
+            envFrom:
+            - configMapRef:
+                name: oran-rag-config
+            - secretRef:
+                name: oran-rag-secrets
+            volumeMounts:
+            - name: vectordb-storage
+              mountPath: /app/data/vectordb
+            - name: embeddings-storage
+              mountPath: /app/data/embeddings
+            resources:
+              limits:
+                memory: "4Gi"
+                cpu: "2000m"
+              requests:
+                memory: "2Gi"
+                cpu: "1000m"
+          volumes:
+          - name: vectordb-storage
+            persistentVolumeClaim:
+              claimName: oran-rag-vectordb-pvc
+          - name: embeddings-storage
+            persistentVolumeClaim:
+              claimName: oran-rag-embeddings-pvc
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+---
+# RBAC - ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oran-rag-sa
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: rbac
+
+---
+# RBAC - Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: oran-rag-role
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+
+---
+# RBAC - RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: oran-rag-rolebinding
+  namespace: oran-nephio-rag
+  labels:
+    app.kubernetes.io/name: oran-nephio-rag
+    app.kubernetes.io/component: rbac
+subjects:
+- kind: ServiceAccount
+  name: oran-rag-sa
+  namespace: oran-nephio-rag
+roleRef:
+  kind: Role
+  name: oran-rag-role
+  apiGroup: rbac.authorization.k8s.io

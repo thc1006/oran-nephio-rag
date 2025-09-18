@@ -1,0 +1,36 @@
+# FastAPI and web framework dependencies
+fastapi>=0.104.0,<1.0.0
+uvicorn[standard]>=0.24.0,<1.0.0
+starlette>=0.27.0,<1.0.0
+
+# Request validation and serialization
+pydantic>=2.4.0,<3.0.0
+pydantic-settings>=2.4.0,<3.0.0
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0,<4.0.0
+passlib[bcrypt]>=1.7.4,<2.0.0
+python-multipart>=0.0.6,<1.0.0
+
+# Rate limiting
+slowapi>=0.1.9,<1.0.0
+redis>=5.0.0,<6.0.0  # Optional: for distributed rate limiting
+
+# HTTP client and async support
+httpx>=0.25.0,<1.0.0
+aiofiles>=23.0.0,<24.0.0
+
+# Monitoring and metrics
+prometheus-client>=0.17.0,<1.0.0
+psutil>=5.9.0,<6.0.0
+
+# Development and testing
+pytest>=7.4.0,<9.0.0
+pytest-asyncio>=0.21.0,<1.0.0
+pytest-mock>=3.10.0,<4.0.0
+httpx-mock>=0.11.0,<1.0.0
+
+# Code quality
+black>=23.0.0,<25.0.0
+isort>=5.12.0,<6.0.0
+flake8>=6.0.0,<7.0.0
