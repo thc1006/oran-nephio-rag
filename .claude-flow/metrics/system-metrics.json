@@ -1,0 +1,86 @@
+[
+  {
+    "timestamp": 1758218648566,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15079854080,
+    "memoryFree": 1872793600,
+    "memoryUsagePercent": 88.95279583843744,
+    "memoryEfficiency": 11.047204161562561,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354554
+  },
+  {
+    "timestamp": 1758218678577,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15298945024,
+    "memoryFree": 1653702656,
+    "memoryUsagePercent": 90.24516590437393,
+    "memoryEfficiency": 9.754834095626066,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354584
+  },
+  {
+    "timestamp": 1758218708579,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15466823680,
+    "memoryFree": 1485824000,
+    "memoryUsagePercent": 91.23544576607398,
+    "memoryEfficiency": 8.76455423392602,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354614.015
+  },
+  {
+    "timestamp": 1758218738585,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15343243264,
+    "memoryFree": 1609404416,
+    "memoryUsagePercent": 90.50647163570382,
+    "memoryEfficiency": 9.493528364296182,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354644.015
+  },
+  {
+    "timestamp": 1758218768600,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15204982784,
+    "memoryFree": 1747664896,
+    "memoryUsagePercent": 89.69090298465991,
+    "memoryEfficiency": 10.309097015340086,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354674.031
+  },
+  {
+    "timestamp": 1758218798611,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15122989056,
+    "memoryFree": 1829658624,
+    "memoryUsagePercent": 89.20723972716928,
+    "memoryEfficiency": 10.79276027283072,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354704.046
+  },
+  {
+    "timestamp": 1758218828614,
+    "memoryTotal": 16952647680,
+    "memoryUsed": 15138648064,
+    "memoryFree": 1813999616,
+    "memoryUsagePercent": 89.29960882664908,
+    "memoryEfficiency": 10.700391173350923,
+    "cpuCount": 8,
+    "cpuLoad": 0,
+    "platform": "win32",
+    "uptime": 354734.046
+  }
+]

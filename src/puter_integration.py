@@ -5,12 +5,11 @@ Following: https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet
 """
 
 import logging
-import time
-import json
-import tempfile
 import os
-from typing import Dict, Any, Optional, List
+import tempfile
+import time
 from contextlib import contextmanager
+from typing import Any, Dict, Generator, List, Optional
 
 # Only import Selenium if not in mock mode
 API_MODE = os.getenv("API_MODE", "browser")
@@ -18,12 +17,13 @@ API_MODE = os.getenv("API_MODE", "browser")
 if API_MODE != "mock":
     try:
         from selenium import webdriver
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
         from selenium.webdriver.chrome.options import Options
         from selenium.webdriver.chrome.service import Service
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
         from webdriver_manager.chrome import ChromeDriverManager
+
         SELENIUM_AVAILABLE = True
     except ImportError as e:
         SELENIUM_AVAILABLE = False
@@ -34,35 +34,31 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 class PuterClaudeAdapter:
     """
     Proper Puter.js Claude integration using browser automation
     Complies with constraint: https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/
     """
-    
-    AVAILABLE_MODELS = [
-        'claude-sonnet-4',
-        'claude-opus-4', 
-        'claude-sonnet-3.7',
-        'claude-sonnet-3.5'
-    ]
-    
-    def __init__(self, model: str = 'claude-sonnet-4', headless: bool = True):
+
+    AVAILABLE_MODELS = ["claude-sonnet-4", "claude-opus-4", "claude-sonnet-3.7", "claude-sonnet-3.5"]
+
+    def __init__(self, model: str = "claude-sonnet-4", headless: bool = True) -> None:
         """
         Initialize Puter.js adapter with browser automation
-        
+
         Args:
             model: Claude model to use
             headless: Whether to run browser in headless mode
         """
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Model {model} not supported. Available: {self.AVAILABLE_MODELS}")
-            
+
         self.model = model
         self.headless = headless
-        self.driver = None
+        self.driver: Optional[Any] = None  # webdriver.Chrome type
         self.mock_mode = API_MODE == "mock"
-        
+
         if self.mock_mode:
             logger.info("Running in mock mode - browser initialization skipped")
         else:
@@ -72,7 +68,7 @@ class PuterClaudeAdapter:
                     "Install with: pip install selenium webdriver-manager"
                 )
             self._html_template = self._create_html_template()
-        
+
     def _create_html_template(self) -> str:
         """Create HTML template with Puter.js integration"""
         return f"""
@@ -215,41 +211,44 @@ class PuterClaudeAdapter:
 </body>
 </html>
         """
-    
+
     @contextmanager
-    def _browser_session(self):
+    def _browser_session(self) -> Generator[None, None, None]:
         """Context manager for browser session"""
         try:
             # Setup Chrome options
             options = Options()
             if self.headless:
-                options.add_argument('--headless')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1920,1080')
-            
+                options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--window-size=1920,1080")
+
             # Initialize driver
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
-            self.driver.implicitly_wait(10)
-            
+            if self.driver is not None:
+                self.driver.implicitly_wait(10)
+
             # Create temporary HTML file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
                 f.write(self._html_template)
                 html_file = f.name
-            
+
             # Load the HTML page
-            self.driver.get(f'file://{html_file}')
-            
+            if self.driver is not None:
+                self.driver.get(f"file://{html_file}")
+
             # Wait for Puter.js to load
-            WebDriverWait(self.driver, 20).until(
-                lambda driver: driver.execute_script("return typeof puter !== 'undefined'")
-            )
-            
+            if self.driver is not None:
+                WebDriverWait(self.driver, 20).until(
+                    lambda driver: driver.execute_script("return typeof puter !== 'undefined'")
+                )
+
             logger.info("Puter.js browser session initialized successfully")
             yield
-            
+
         except Exception as e:
             logger.error(f"Browser session error: {e}")
             raise
@@ -261,143 +260,150 @@ class PuterClaudeAdapter:
                 os.unlink(html_file)
             except:
                 pass
-    
+
     def query(self, prompt: str, stream: bool = False, timeout: int = 60) -> Dict[str, Any]:
         """
         Query Claude via Puter.js browser integration or mock response
-        
+
         Args:
             prompt: The question/prompt to send to Claude
             stream: Whether to use streaming response
             timeout: Maximum wait time in seconds
-            
+
         Returns:
             Dict containing response, model info, and metadata
         """
         if self.mock_mode:
             return self._mock_query(prompt, stream)
-            
+
         with self._browser_session():
             try:
                 # Execute the query via JavaScript
-                js_function = 'streamClaudeViaPuter' if stream else 'queryClaudeViaPuter'
-                
+                js_function = "streamClaudeViaPuter" if stream else "queryClaudeViaPuter"
+
                 logger.info(f"Executing Puter.js query with model {self.model}")
-                
+
                 # Start the query
-                self.driver.execute_script(f"""
-                    window.{js_function}(arguments[0], arguments[1])
-                        .then(result => console.log('Query completed:', result))
-                        .catch(error => console.error('Query failed:', error));
-                """, prompt, self.model)
-                
+                if self.driver is not None:
+                    self.driver.execute_script(
+                        f"""
+                        window.{js_function}(arguments[0], arguments[1])
+                            .then(result => console.log('Query completed:', result))
+                            .catch(error => console.error('Query failed:', error));
+                    """,
+                        prompt,
+                        self.model,
+                    )
+
                 # Wait for completion
                 start_time = time.time()
                 while time.time() - start_time < timeout:
                     # Check if processing is complete
-                    is_processing = self.driver.execute_script("return window.ragProcessing")
-                    
-                    if not is_processing:
-                        # Check for response
-                        response = self.driver.execute_script("return window.ragResponse")
-                        error = self.driver.execute_script("return window.ragError")
-                        
+                    if self.driver is not None:
+                        is_processing = self.driver.execute_script("return window.ragProcessing")
+
+                        if not is_processing:
+                            # Check for response
+                            response = self.driver.execute_script("return window.ragResponse")
+                            error = self.driver.execute_script("return window.ragError")
+
                         if response:
                             logger.info("Successfully received response from Puter.js")
                             return {
-                                'answer': response['answer'],
-                                'model': response['model'],
-                                'timestamp': response['timestamp'],
-                                'success': True,
-                                'adapter_type': 'puter_js_browser',
-                                'query_time': time.time() - start_time,
-                                'streamed': response.get('streamed', False)
+                                "answer": response["answer"],
+                                "model": response["model"],
+                                "timestamp": response["timestamp"],
+                                "success": True,
+                                "adapter_type": "puter_js_browser",
+                                "query_time": time.time() - start_time,
+                                "streamed": response.get("streamed", False),
                             }
-                        
+
                         if error:
                             logger.error(f"Puter.js query failed: {error['error']}")
                             return {
-                                'error': error['error'],
-                                'success': False,
-                                'adapter_type': 'puter_js_browser',
-                                'timestamp': error['timestamp']
+                                "error": error["error"],
+                                "success": False,
+                                "adapter_type": "puter_js_browser",
+                                "timestamp": error["timestamp"],
                             }
-                    
+
                     time.sleep(0.5)  # Poll every 500ms
-                
+
                 # Timeout occurred
                 logger.error(f"Puter.js query timed out after {timeout} seconds")
                 return {
-                    'error': f'Query timed out after {timeout} seconds',
-                    'success': False,
-                    'adapter_type': 'puter_js_browser'
+                    "error": f"Query timed out after {timeout} seconds",
+                    "success": False,
+                    "adapter_type": "puter_js_browser",
                 }
-                
+
             except Exception as e:
                 logger.error(f"Puter.js query execution error: {e}")
                 return {
-                    'error': f'Query execution failed: {str(e)}',
-                    'success': False,
-                    'adapter_type': 'puter_js_browser'
+                    "error": f"Query execution failed: {str(e)}",
+                    "success": False,
+                    "adapter_type": "puter_js_browser",
                 }
-    
+
     def _mock_query(self, prompt: str, stream: bool = False) -> Dict[str, Any]:
         """
         Mock query response for testing without browser
         """
         logger.info(f"Mock query: {prompt[:100]}...")
-        
+
         # Generate a basic mock response
         mock_response = f"Mock response to: '{prompt[:50]}...'"
         if "nephio" in prompt.lower():
             mock_response = "This is a mock response about Nephio network function orchestration."
         elif "oran" in prompt.lower() or "o-ran" in prompt.lower():
             mock_response = "This is a mock response about O-RAN architecture and components."
-        
+
         return {
-            'answer': mock_response,
-            'model': self.model,
-            'timestamp': time.time(),
-            'success': True,
-            'adapter_type': 'puter_js_mock',
-            'query_time': 0.1,
-            'streamed': stream
+            "answer": mock_response,
+            "model": self.model,
+            "timestamp": time.time(),
+            "success": True,
+            "adapter_type": "puter_js_mock",
+            "query_time": 0.1,
+            "streamed": stream,
         }
-    
+
     def is_available(self) -> bool:
         """Check if Puter.js integration is available"""
         if self.mock_mode:
             return True
-            
+
         if not SELENIUM_AVAILABLE:
             return False
-            
+
         try:
             with self._browser_session():
                 # Test if Puter.js is loaded
-                puter_available = self.driver.execute_script("return typeof puter !== 'undefined'")
-                ai_available = self.driver.execute_script("return typeof puter.ai !== 'undefined'")
-                
-                return puter_available and ai_available
+                if self.driver is not None:
+                    puter_available = self.driver.execute_script("return typeof puter !== 'undefined'")
+                    ai_available = self.driver.execute_script("return typeof puter.ai !== 'undefined'")
+                    return bool(puter_available and ai_available)
+                return False
         except Exception as e:
             logger.error(f"Availability check failed: {e}")
             return False
-    
+
     def get_available_models(self) -> List[str]:
         """Get list of available Claude models"""
         return self.AVAILABLE_MODELS.copy()
-    
+
     def get_info(self) -> Dict[str, Any]:
         """Get adapter information"""
         return {
-            'adapter_type': 'PuterClaudeAdapter',
-            'model': self.model,
-            'available_models': self.AVAILABLE_MODELS,
-            'integration_method': 'mock' if self.mock_mode else 'browser_automation',
-            'tutorial_source': 'https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/',
-            'headless_mode': self.headless,
-            'mock_mode': self.mock_mode,
-            'selenium_available': SELENIUM_AVAILABLE
+            "adapter_type": "PuterClaudeAdapter",
+            "model": self.model,
+            "available_models": self.AVAILABLE_MODELS,
+            "integration_method": "mock" if self.mock_mode else "browser_automation",
+            "tutorial_source": "https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/",
+            "headless_mode": self.headless,
+            "mock_mode": self.mock_mode,
+            "selenium_available": SELENIUM_AVAILABLE,
         }
 
 
@@ -406,11 +412,11 @@ class PuterRAGManager:
     RAG system manager using Puter.js Claude integration
     Replaces the old LLMManager with constraint-compliant implementation
     """
-    
-    def __init__(self, model: str = 'claude-sonnet-4', headless: bool = True):
+
+    def __init__(self, model: str = "claude-sonnet-4", headless: bool = True) -> None:
         """
         Initialize RAG manager with Puter.js integration
-        
+
         Args:
             model: Claude model to use
             headless: Whether to run browser in headless mode
@@ -418,7 +424,7 @@ class PuterRAGManager:
         # Check API_MODE before initializing browser components
         if API_MODE == "mock":
             logger.info("Running in mock mode - browser initialization skipped")
-        
+
         try:
             self.adapter = PuterClaudeAdapter(model=model, headless=headless)
             logger.info(f"PuterRAGManager initialized with model: {model} (mode: {API_MODE})")
@@ -429,16 +435,16 @@ class PuterRAGManager:
                 raise
             else:
                 raise
-    
+
     def query(self, prompt: str, context: str = "", **kwargs) -> Dict[str, Any]:
         """
         Query with RAG context using Puter.js
-        
+
         Args:
             prompt: User question
             context: Retrieved document context
             **kwargs: Additional parameters
-            
+
         Returns:
             Response dictionary
         """
@@ -457,35 +463,37 @@ Please provide a comprehensive answer based primarily on the provided context, a
             enhanced_prompt = f"""Please answer this question about O-RAN and Nephio technologies:
 
 {prompt}"""
-        
+
         return self.adapter.query(enhanced_prompt, **kwargs)
-    
+
     def get_status(self) -> Dict[str, Any]:
         """Get manager status"""
         adapter_info = self.adapter.get_info()
         return {
-            'integration_type': 'puter_js_mock' if API_MODE == "mock" else 'puter_js_browser',
-            'adapter_available': self.adapter.is_available(),
-            'adapter_info': adapter_info,
-            'constraint_compliant': True,
-            'tutorial_source': 'https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/',
-            'api_mode': API_MODE,
-            'selenium_available': SELENIUM_AVAILABLE
+            "integration_type": "puter_js_mock" if API_MODE == "mock" else "puter_js_browser",
+            "adapter_available": self.adapter.is_available(),
+            "adapter_info": adapter_info,
+            "constraint_compliant": True,
+            "tutorial_source": "https://developer.puter.com/tutorials/free-unlimited-claude-35-sonnet-api/",
+            "api_mode": API_MODE,
+            "selenium_available": SELENIUM_AVAILABLE,
         }
 
 
 # Factory functions for backward compatibility
-def create_puter_rag_manager(model: str = 'claude-sonnet-4', headless: bool = True) -> PuterRAGManager:
+def create_puter_rag_manager(model: str = "claude-sonnet-4", headless: bool = True) -> PuterRAGManager:
     """Create a Puter.js RAG manager"""
     return PuterRAGManager(model=model, headless=headless)
 
 
-def quick_puter_query(prompt: str, model: str = 'claude-sonnet-4') -> str:
+def quick_puter_query(prompt: str, model: str = "claude-sonnet-4") -> str:
     """Quick query using Puter.js integration"""
     manager = create_puter_rag_manager(model=model)
     result = manager.query(prompt)
-    
-    if result.get('success'):
-        return result.get('answer', 'No answer received')
+
+    if result.get("success"):
+        answer = result.get("answer", "No answer received")
+        return str(answer) if answer is not None else "No answer received"
     else:
-        return f"Error: {result.get('error', 'Unknown error')}"
+        error = result.get("error", "Unknown error")
+        return f"Error: {str(error)}"

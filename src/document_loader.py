@@ -1,78 +1,111 @@
 """
 O-RAN × Nephio RAG 系統文件載入模組
 """
-import time
+
 import logging
 import re
+import time
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
+
 import requests
 from bs4 import BeautifulSoup, Comment
 from langchain.docstore.document import Document
 
 try:
-    from .config import DocumentSource, Config
+    from .config import Config, DocumentSource
 except ImportError:
-    from config import DocumentSource, Config
+    from config import Config, DocumentSource
 
 # 設定模組日誌記錄器
 logger = logging.getLogger(__name__)
 
+
 class DocumentContentCleaner:
     """文件內容清理器"""
-    
-    def __init__(self, config: Optional['Config'] = None):
+
+    def __init__(self, config: Optional["Config"] = None) -> None:
         try:
             from .config import Config
         except ImportError:
             from config import Config
         self.config = config or Config()
-        
+
         # 不需要的 HTML 標籤
         self.unwanted_tags = [
-            'script', 'style', 'nav', 'header', 'footer', 'aside',
-            'advertisement', 'ads', 'menu', 'sidebar', 'comments',
-            'social-share', 'cookie-notice', 'breadcrumb'
+            "script",
+            "style",
+            "nav",
+            "header",
+            "footer",
+            "aside",
+            "advertisement",
+            "ads",
+            "menu",
+            "sidebar",
+            "comments",
+            "social-share",
+            "cookie-notice",
+            "breadcrumb",
         ]
-        
+
         # 不需要的 CSS 類別和 ID
         self.unwanted_selectors = [
-            '.navigation', '.nav', '.menu', '.sidebar', '.ads', 
-            '.advertisement', '.social', '.share', '.comments', 
-            '.footer', '.header', '.breadcrumb', '.cookie-notice',
-            '#navigation', '#nav', '#menu', '#sidebar', '#ads',
-            '#advertisement', '#social', '#share', '#comments',
-            '#footer', '#header', '#breadcrumb'
+            ".navigation",
+            ".nav",
+            ".menu",
+            ".sidebar",
+            ".ads",
+            ".advertisement",
+            ".social",
+            ".share",
+            ".comments",
+            ".footer",
+            ".header",
+            ".breadcrumb",
+            ".cookie-notice",
+            "#navigation",
+            "#nav",
+            "#menu",
+            "#sidebar",
+            "#ads",
+            "#advertisement",
+            "#social",
+            "#share",
+            "#comments",
+            "#footer",
+            "#header",
+            "#breadcrumb",
         ]
-        
+
         # 跳過的文字模式
         self.skip_patterns = [
-            r'^(home|back|next|previous|menu|search)$',
-            r'^(login|logout|register|subscribe|share)$',
-            r'^(twitter|facebook|linkedin|github|youtube)$',
-            r'^(cookie|privacy|terms|policy)$',
-            r'^\s*\d+\s*$',  # 純數字
-            r'^[<>]+$',      # 純符號
+            r"^(home|back|next|previous|menu|search)$",
+            r"^(login|logout|register|subscribe|share)$",
+            r"^(twitter|facebook|linkedin|github|youtube)$",
+            r"^(cookie|privacy|terms|policy)$",
+            r"^\s*\d+\s*$",  # 純數字
+            r"^[<>]+$",  # 純符號
         ]
-        
+
         # 編譯正則表達式以提高效能
         self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.skip_patterns]
-    
+
     def clean_html(self, html_content: str, base_url: str = "") -> str:
         """清理 HTML 內容，提取主要文字"""
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
+            soup = BeautifulSoup(html_content, "html.parser")
+
             # 移除註解
             for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
                 comment.extract()
-            
+
             # 移除不需要的標籤
             for tag_name in self.unwanted_tags:
                 for element in soup.find_all(tag_name):
                     element.decompose()
-            
+
             # 移除不需要的選擇器
             for selector in self.unwanted_selectors:
                 try:
@@ -80,240 +113,246 @@ class DocumentContentCleaner:
                         element.decompose()
                 except Exception as e:
                     logger.debug(f"選擇器 {selector} 處理失敗: {e}")
-            
+
             # 嘗試找到主要內容區域
             main_content = self._extract_main_content(soup)
-            
+
             if main_content:
                 # 處理相對連結
                 self._process_links(main_content, base_url)
-                
+
                 # 提取文字內容
-                text_content = main_content.get_text(separator='\n', strip=True)
+                text_content = main_content.get_text(separator="\n", strip=True)
             else:
                 # 如果找不到主要內容，使用整個 body
-                body = soup.find('body')
+                body = soup.find("body")
                 if body:
-                    text_content = body.get_text(separator='\n', strip=True)
+                    text_content = body.get_text(separator="\n", strip=True)
                 else:
-                    text_content = soup.get_text(separator='\n', strip=True)
-            
+                    text_content = soup.get_text(separator="\n", strip=True)
+
             # 清理文字內容
             cleaned_text = self._clean_text_content(text_content)
-            
+
             return cleaned_text
-            
+
         except Exception as e:
             logger.error(f"HTML 清理失敗: {e}")
             return ""
-    
+
     def _extract_main_content(self, soup: BeautifulSoup) -> Optional[BeautifulSoup]:
         """提取主要內容區域"""
         # 優先選擇器列表，按優先級排序
         content_selectors = [
-            'main',
-            '.main-content',
-            '.markdown-body',
-            '.wiki-content',
-            '.content',
-            'article',
-            '.article-content',
-            '.post-content',
-            '.entry-content',
-            '#main-content',
-            '#content',
-            '.container .content',
-            '.page-content'
+            "main",
+            ".main-content",
+            ".markdown-body",
+            ".wiki-content",
+            ".content",
+            "article",
+            ".article-content",
+            ".post-content",
+            ".entry-content",
+            "#main-content",
+            "#content",
+            ".container .content",
+            ".page-content",
         ]
-        
+
         for selector in content_selectors:
             try:
                 content_element = soup.select_one(selector)
-                if content_element and len(content_element.get_text(strip=True)) > self.config.MIN_EXTRACTED_CONTENT_LENGTH:
+                if (
+                    content_element
+                    and len(content_element.get_text(strip=True)) > self.config.MIN_EXTRACTED_CONTENT_LENGTH
+                ):
                     logger.debug(f"使用選擇器 '{selector}' 找到主要內容")
                     return content_element
             except Exception as e:
                 logger.debug(f"選擇器 {selector} 查找失敗: {e}")
-        
+
         logger.debug("未找到特定的主要內容區域")
         return None
-    
-    def _process_links(self, content: BeautifulSoup, base_url: str):
+
+    def _process_links(self, content: BeautifulSoup, base_url: str) -> None:
         """處理相對連結"""
         if not base_url:
             return
-        
+
         try:
-            for link in content.find_all('a', href=True):
-                href = link['href']
-                if href.startswith('/') or not href.startswith('http'):
+            for link in content.find_all("a", href=True):
+                href = link["href"]
+                if href.startswith("/") or not href.startswith("http"):
                     absolute_url = urljoin(base_url, href)
-                    link['href'] = absolute_url
+                    link["href"] = absolute_url
         except Exception as e:
             logger.debug(f"處理連結失敗: {e}")
-    
+
     def _clean_text_content(self, text: str) -> str:
         """清理文字內容"""
         if not text:
             return ""
-        
-        lines = text.split('\n')
+
+        lines = text.split("\n")
         cleaned_lines = []
         prev_line = ""
-        
+
         for line in lines:
             line = line.strip()
-            
+
             # 跳過空行
             if not line:
                 continue
-            
+
             # 跳過太短的行（可能是導航元素）
             if len(line) < self.config.MIN_LINE_LENGTH:
                 continue
-            
+
             # 跳過符合跳過模式的行
             if any(pattern.match(line) for pattern in self.compiled_patterns):
                 continue
-            
+
             # 跳過重複的連續行
             if line == prev_line:
                 continue
-            
+
             # 移除多餘的空白字元
-            line = re.sub(r'\s+', ' ', line)
-            
+            line = re.sub(r"\s+", " ", line)
+
             cleaned_lines.append(line)
             prev_line = line
-        
+
         # 合併短行（可能是被錯誤分割的句子）
         merged_lines = self._merge_short_lines(cleaned_lines)
-        
-        return '\n'.join(merged_lines)
-    
+
+        return "\n".join(merged_lines)
+
     def _merge_short_lines(self, lines: List[str]) -> List[str]:
         """合併可能被錯誤分割的短行"""
         if not lines:
             return lines
-        
+
         merged = []
         current_line = ""
-        
+
         for line in lines:
             # 如果當前行很短且不以句號結尾，可能需要與下一行合併
-            if (len(current_line) > 0 and 
-                len(current_line) < self.config.MAX_LINE_MERGE_LENGTH and 
-                not current_line.endswith(('.', '!', '?', ':', ';', '。', '！', '？', '：', '；')) and
-                not line.startswith(('#', '-', '*', '1.', '2.', '3.', '4.', '5.'))):
+            if (
+                len(current_line) > 0
+                and len(current_line) < self.config.MAX_LINE_MERGE_LENGTH
+                and not current_line.endswith((".", "!", "?", ":", ";", "。", "！", "？", "：", "；"))
+                and not line.startswith(("#", "-", "*", "1.", "2.", "3.", "4.", "5."))
+            ):
                 current_line += " " + line
             else:
                 if current_line:
                     merged.append(current_line)
                 current_line = line
-        
+
         if current_line:
             merged.append(current_line)
-        
+
         return merged
+
 
 class DocumentLoader:
     """強化的文件載入器"""
-    
-    def __init__(self, config: Optional[Config] = None):
+
+    def __init__(self, config: Optional[Config] = None) -> None:
         self.config = config or Config()
         self.max_retries = self.config.MAX_RETRIES
         self.timeout = self.config.REQUEST_TIMEOUT
-        
+
         # Initialize session as simple attribute, not property
-        self._session = None
-        
+        self._session: Optional[requests.Session] = None
+
         # 初始化內容清理器
         try:
             self.content_cleaner = DocumentContentCleaner(self.config)
         except Exception as e:
             logger.error(f"內容清理器初始化失敗: {e}")
             raise
-        
+
         # 載入統計
-        self.stats = {
-            'total_attempts': 0,
-            'successful_loads': 0,
-            'failed_loads': 0,
-            'retry_attempts': 0
-        }
-        
+        self.stats = {"total_attempts": 0, "successful_loads": 0, "failed_loads": 0, "retry_attempts": 0}
+
         logger.debug("文件載入器初始化完成")
-    
+
     @property
     def session(self) -> requests.Session:
         """Get the HTTP session, creating it lazily if needed"""
         return self._get_session()
-    
+
     def _get_session(self) -> requests.Session:
         """Get or create the HTTP session lazily"""
         if self._session is None:
             self._session = requests.Session()
-            
+
             # 設定請求標頭
-            self._session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none'
-            })
-            
+            self._session.headers.update(
+                {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                }
+            )
+
             # 設定會話配置
-            self._session.max_redirects = 5
-            
+            if hasattr(self._session, "max_redirects"):
+                self._session.max_redirects = 5
+
         return self._session
-    
+
     def load_document(self, source: DocumentSource) -> Optional[Document]:
         """載入單一文件來源"""
         if not source.enabled:
             logger.info(f"跳過已停用的來源: {source.url}")
             return None
-        
-        self.stats['total_attempts'] += 1
-        
+
+        self.stats["total_attempts"] += 1
+
         for attempt in range(self.max_retries):
             try:
                 if attempt > 0:
-                    self.stats['retry_attempts'] += 1
-                
+                    self.stats["retry_attempts"] += 1
+
                 logger.info(f"載入文件 (嘗試 {attempt + 1}/{self.max_retries}): {source.description}")
-                
+
                 # 發送 HTTP 請求
                 response = self._make_request(source.url)
-                
+
                 # 驗證回應
                 self._validate_response(response, source)
-                
+
                 # 提取內容
                 content = self._extract_content(response, source)
-                
+
                 # 驗證內容品質
                 self._validate_content(content)
-                
+
                 # 建立文件物件
                 doc = self._create_document(content, source, response)
-                
-                self.stats['successful_loads'] += 1
+
+                self.stats["successful_loads"] += 1
                 logger.info(f"✅ 成功載入: {source.description} ({len(content)} 字元)")
-                
+
                 return doc
-                
+
             except requests.exceptions.Timeout as e:
                 logger.warning(f"⏰ 請求超時 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
             except requests.exceptions.ConnectionError as e:
                 logger.warning(f"🔌 連接錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
             except requests.exceptions.HTTPError as e:
-                status_code = getattr(e.response, 'status_code', 'unknown') if e.response else 'unknown'
-                logger.warning(f"🌐 HTTP 錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - 狀態碼 {status_code}")
+                status_code = getattr(e.response, "status_code", "unknown") if e.response else "unknown"
+                logger.warning(
+                    f"🌐 HTTP 錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - 狀態碼 {status_code}"
+                )
             except requests.exceptions.SSLError as e:
                 logger.warning(f"🔒 SSL 憑證錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
             except requests.exceptions.TooManyRedirects as e:
@@ -326,27 +365,27 @@ class DocumentLoader:
                 logger.warning(f"📄 編碼錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
             except Exception as e:
                 logger.warning(f"❗ 未預期的錯誤 (嘗試 {attempt + 1}/{self.max_retries}): {source.url} - {str(e)}")
-            
+
             # 重試前等待
             if attempt < self.max_retries - 1:
-                wait_time = min(self.config.RETRY_DELAY_BASE ** attempt, self.config.MAX_RETRY_DELAY)  # 指數退避
+                wait_time = min(self.config.RETRY_DELAY_BASE**attempt, self.config.MAX_RETRY_DELAY)  # 指數退避
                 logger.info(f"等待 {wait_time} 秒後重試...")
                 time.sleep(wait_time)
-        
-        self.stats['failed_loads'] += 1
+
+        self.stats["failed_loads"] += 1
         logger.error(f"❌ 無法載入文件: {source.url}")
-        
+
         # 如果是網路錯誤，嘗試返回對應的樣本文件
         sample_doc = self._get_sample_document_for_source(source)
         if sample_doc:
             logger.info(f"📄 使用樣本文件替代: {source.description}")
             # Update statistics to reflect this as a successful load (fallback mode)
-            self.stats['successful_loads'] += 1
-            self.stats['failed_loads'] -= 1  # Correct the failed count since we have a fallback
+            self.stats["successful_loads"] += 1
+            self.stats["failed_loads"] -= 1  # Correct the failed count since we have a fallback
             return sample_doc
-        
+
         return None
-    
+
     def _make_request(self, url: str) -> requests.Response:
         """發送 HTTP 請求"""
         try:
@@ -355,7 +394,7 @@ class DocumentLoader:
                 timeout=self.timeout,
                 allow_redirects=True,
                 stream=False,
-                verify=self.config.VERIFY_SSL  # 啟用 SSL 憑證驗證
+                verify=self.config.VERIFY_SSL,  # 啟用 SSL 憑證驗證
             )
             response.raise_for_status()
             return response
@@ -366,33 +405,33 @@ class DocumentLoader:
         except Exception as e:
             logger.error(f"HTTP 請求失敗: {e}")
             raise
-    
-    def _validate_response(self, response: requests.Response, source: DocumentSource):
+
+    def _validate_response(self, response: requests.Response, source: DocumentSource) -> None:
         """驗證 HTTP 回應"""
         # 檢查內容類型
-        content_type = response.headers.get('content-type', '').lower()
-        if 'text/html' not in content_type:
+        content_type = response.headers.get("content-type", "").lower()
+        if "text/html" not in content_type:
             logger.warning(f"非 HTML 內容類型: {content_type}")
-        
+
         # 檢查內容長度 - 使用 response.text 以支援模擬回應
         content_length = len(response.text or "")
         if content_length < self.config.MIN_CONTENT_LENGTH:
             raise ValueError(f"回應內容太短 ({content_length} bytes，最少需要 {self.config.MIN_CONTENT_LENGTH} bytes)")
-        
+
         # 檢查狀態碼
         if response.status_code != 200:
             raise ValueError(f"HTTP 狀態碼錯誤: {response.status_code}")
-    
+
     def _extract_content(self, response: requests.Response, source: DocumentSource) -> str:
         """提取頁面內容"""
         # 取得編碼
-        encoding = response.encoding or 'utf-8'
-        
+        encoding = response.encoding or "utf-8"
+
         try:
             html_content = response.content.decode(encoding)
         except UnicodeDecodeError:
             # 嘗試其他編碼
-            for fallback_encoding in ['utf-8', 'iso-8859-1', 'cp1252']:
+            for fallback_encoding in ["utf-8", "iso-8859-1", "cp1252"]:
                 try:
                     html_content = response.content.decode(fallback_encoding)
                     break
@@ -400,51 +439,64 @@ class DocumentLoader:
                     continue
             else:
                 raise ValueError("無法解碼 HTML 內容")
-        
+
         # 清理 HTML 並提取文字
         content = self.content_cleaner.clean_html(html_content, response.url)
-        
+
         return content
-    
-    def _validate_content(self, content: str):
+
+    def _validate_content(self, content: str) -> None:
         """驗證提取的內容品質"""
         if not content or len(content.strip()) < self.config.MIN_EXTRACTED_CONTENT_LENGTH:
-            raise ValueError(f"提取的內容太短 ({len(content)} 字元，最少需要 {self.config.MIN_EXTRACTED_CONTENT_LENGTH} 字元)")
-        
+            raise ValueError(
+                f"提取的內容太短 ({len(content)} 字元，最少需要 {self.config.MIN_EXTRACTED_CONTENT_LENGTH} 字元)"
+            )
+
         # 檢查是否包含相關關鍵字（針對 O-RAN 和 Nephio 文件）
         relevant_keywords = [
-            'nephio', 'o-ran', 'oran', 'kubernetes', 'gitops',
-            'network function', 'nf', 'deployment', 'scale',
-            'cluster', 'workload', 'operator'
+            "nephio",
+            "o-ran",
+            "oran",
+            "kubernetes",
+            "gitops",
+            "network function",
+            "nf",
+            "deployment",
+            "scale",
+            "cluster",
+            "workload",
+            "operator",
         ]
-        
+
         content_lower = content.lower()
         keyword_count = sum(1 for keyword in relevant_keywords if keyword in content_lower)
-        
+
         if keyword_count < self.config.MIN_KEYWORD_COUNT:
-            logger.warning(f"內容可能不相關，找到的關鍵字數量: {keyword_count}，最少需要 {self.config.MIN_KEYWORD_COUNT} 個")
-    
+            logger.warning(
+                f"內容可能不相關，找到的關鍵字數量: {keyword_count}，最少需要 {self.config.MIN_KEYWORD_COUNT} 個"
+            )
+
     def _create_document(self, content: str, source: DocumentSource, response: requests.Response) -> Document:
         """建立 LangChain Document 物件"""
         try:
             # 提取額外的 metadata
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
+            soup = BeautifulSoup(response.content, "html.parser")
+
             title = ""
             if soup.title:
                 title = soup.title.get_text(strip=True)
-            
+
             # 嘗試從 meta 標籤取得描述
-            description_meta = soup.find('meta', attrs={'name': 'description'})
+            description_meta = soup.find("meta", attrs={"name": "description"})
             meta_description = ""
             if description_meta:
-                meta_description = description_meta.get('content', '')
-            
+                meta_description = description_meta.get("content", "")
+
         except Exception as e:
             logger.warning(f"提取 metadata 失敗: {e}")
             title = ""
             meta_description = ""
-        
+
         # 建立 metadata
         metadata = {
             "source_url": source.url,
@@ -454,55 +506,50 @@ class DocumentLoader:
             "last_updated": datetime.now().isoformat(),
             "content_length": len(content),
             "status_code": response.status_code,
-            "content_type": response.headers.get('content-type', ''),
+            "content_type": response.headers.get("content-type", ""),
             "title": title,
             "meta_description": meta_description,
             "final_url": response.url,  # 可能因重導向而不同
-            "load_timestamp": time.time()
+            "load_timestamp": time.time(),
         }
-        
+
         return Document(page_content=content, metadata=metadata)
-    
+
     def load_all_documents(self, sources: Optional[List[DocumentSource]] = None) -> List[Document]:
         """載入所有白名單文件，從根源封鎖雜訊"""
         # 如果沒有提供來源，使用配置中的預設來源
         if sources is None:
             sources = self.config.OFFICIAL_SOURCES
-        
+
         logger.info(f"開始載入 {len(sources)} 個官方文件來源...")
-        
+
         # 重置統計
-        self.stats = {
-            'total_attempts': 0,
-            'successful_loads': 0,
-            'failed_loads': 0,
-            'retry_attempts': 0
-        }
-        
+        self.stats = {"total_attempts": 0, "successful_loads": 0, "failed_loads": 0, "retry_attempts": 0}
+
         documents = []
         start_time = time.time()
-        
+
         for i, source in enumerate(sources, 1):
             logger.info(f"處理來源 {i}/{len(sources)}: {source.description}")
-            
+
             # 載入文件
             doc = self.load_document(source)
             if doc:
                 documents.append(doc)
-            
+
             # 在請求間添加延遲，避免對伺服器造成壓力
             if i < len(sources):
                 time.sleep(self.config.REQUEST_DELAY)
-        
+
         end_time = time.time()
-        
+
         # 記錄統計資訊
-        logger.info(f"載入完成統計:")
+        logger.info("載入完成統計:")
         logger.info(f"  總載入時間: {end_time - start_time:.2f} 秒")
         logger.info(f"  成功載入: {self.stats['successful_loads']}/{len(sources)}")
         logger.info(f"  失敗載入: {self.stats['failed_loads']}")
         logger.info(f"  重試次數: {self.stats['retry_attempts']}")
-        
+
         # 如果沒有成功載入任何文件，嘗試使用離線樣本文件
         if not documents:
             logger.warning("⚠️ 無法從網路載入任何官方文件，嘗試使用離線樣本文件...")
@@ -512,28 +559,28 @@ class DocumentLoader:
                 return offline_documents
             else:
                 raise ValueError("無法載入任何官方文件！請檢查網路連線和文件來源配置")
-        
+
         return documents
-    
+
     def get_load_statistics(self) -> Dict[str, Any]:
         """取得載入統計資訊"""
-        total_attempts = self.stats['total_attempts']
-        success_rate = (self.stats['successful_loads'] / total_attempts * 100) if total_attempts > 0 else 0
-        
+        total_attempts = self.stats["total_attempts"]
+        success_rate = (self.stats["successful_loads"] / total_attempts * 100) if total_attempts > 0 else 0
+
         return {
             "total_attempts": total_attempts,
-            "successful_loads": self.stats['successful_loads'],
-            "failed_loads": self.stats['failed_loads'],
-            "retry_attempts": self.stats['retry_attempts'],
-            "success_rate": round(success_rate, 2)
+            "successful_loads": self.stats["successful_loads"],
+            "failed_loads": self.stats["failed_loads"],
+            "retry_attempts": self.stats["retry_attempts"],
+            "success_rate": round(success_rate, 2),
         }
-    
+
     def _get_sample_document_for_source(self, source: DocumentSource) -> Optional[Document]:
         """為失敗的來源提供樣本文件"""
         try:
             # 根據來源類型返回相應的樣本文件
             sample_content = ""
-            
+
             if "architecture" in source.url.lower() or "arch" in source.description.lower():
                 sample_content = """
                 Nephio Architecture Overview
@@ -552,7 +599,7 @@ class DocumentLoader:
                 - Multi-cluster orchestration capabilities
                 - Integration with cloud native tools and platforms
                 """
-                
+
             elif "o-ran" in source.url.lower() or "oran" in source.url.lower():
                 sample_content = """
                 O-RAN Integration with Nephio
@@ -571,7 +618,7 @@ class DocumentLoader:
                 - Multi-site deployment orchestration
                 - Integration with SMO (Service Management and Orchestration)
                 """
-                
+
             elif "scale" in source.url.lower() or "scaling" in source.description.lower():
                 sample_content = """
                 Network Function Scaling Guide
@@ -597,7 +644,7 @@ class DocumentLoader:
                 
                 Example: kubectl apply -f scaling-config.yaml
                 """
-                
+
             else:
                 sample_content = f"""
                 {source.description}
@@ -613,7 +660,7 @@ class DocumentLoader:
                 
                 For more information, please ensure network connectivity to access the official documentation.
                 """
-            
+
             # 建立樣本文件的 metadata
             metadata = {
                 "source_url": source.url,
@@ -629,20 +676,20 @@ class DocumentLoader:
                 "final_url": source.url,
                 "load_timestamp": time.time(),
                 "is_sample": True,
-                "fallback_reason": "network_error"
+                "fallback_reason": "network_error",
             }
-            
+
             return Document(page_content=sample_content.strip(), metadata=metadata)
-            
+
         except Exception as e:
             logger.error(f"建立樣本文件失敗: {e}")
             return None
-    
+
     def _get_offline_sample_documents(self) -> List[Document]:
         """返回離線樣本文件集合"""
         try:
             offline_docs = []
-            
+
             # 建立核心樣本文件
             sample_sources = [
                 {
@@ -684,11 +731,11 @@ class DocumentLoader:
                     - GitOps-based configuration management
                     - Multi-cluster orchestration
                     - Vendor-neutral approach
-                    """
+                    """,
                 },
                 {
                     "url": "https://docs.nephio.org/o-ran-integration/",
-                    "type": "nephio", 
+                    "type": "nephio",
                     "description": "O-RAN Integration Guide",
                     "priority": 2,
                     "content": """
@@ -729,12 +776,12 @@ class DocumentLoader:
                     - Dynamic scaling based on traffic patterns
                     - Multi-vendor interoperability
                     - Reduced operational complexity
-                    """
+                    """,
                 },
                 {
                     "url": "https://docs.nephio.org/scaling-guide/",
                     "type": "nephio",
-                    "description": "Network Function Scaling Guide", 
+                    "description": "Network Function Scaling Guide",
                     "priority": 3,
                     "content": """
                     Network Function Scaling with Nephio
@@ -789,19 +836,22 @@ class DocumentLoader:
                     - Test scaling scenarios regularly
                     - Implement proper resource limits
                     - Use automation for scaling decisions
-                    """
-                }
+                    """,
+                },
             ]
-            
+
             # 為每個樣本創建 Document 物件
             for sample in sample_sources:
+                sample_content = sample.get("content", "")
+                content_len = len(sample_content) if isinstance(sample_content, str) else 0
+
                 metadata = {
                     "source_url": sample["url"],
-                    "source_type": sample["type"], 
+                    "source_type": sample["type"],
                     "description": sample["description"],
                     "priority": sample["priority"],
                     "last_updated": datetime.now().isoformat(),
-                    "content_length": len(sample["content"]),
+                    "content_length": content_len,
                     "status_code": 200,
                     "content_type": "text/html",
                     "title": sample["description"],
@@ -809,27 +859,28 @@ class DocumentLoader:
                     "final_url": sample["url"],
                     "load_timestamp": time.time(),
                     "is_sample": True,
-                    "fallback_reason": "offline_mode"
+                    "fallback_reason": "offline_mode",
                 }
-                
-                doc = Document(page_content=sample["content"].strip(), metadata=metadata)
+
+                content_str = sample_content.strip() if isinstance(sample_content, str) else ""
+                doc = Document(page_content=content_str, metadata=metadata)
                 offline_docs.append(doc)
-            
+
             logger.info(f"✅ 產生了 {len(offline_docs)} 個離線樣本文件")
             return offline_docs
-            
+
         except Exception as e:
             logger.error(f"建立離線樣本文件失敗: {e}")
             return []
 
-
-    def __del__(self):
+    def __del__(self) -> None:
         """清理資源"""
         try:
             if self._session is not None:
                 self._session.close()
         except Exception as e:
             logger.debug(f"資源清理失敗: {e}")
+
 
 def create_document_loader(config: Optional[Config] = None) -> DocumentLoader:
     """建立文件載入器的工廠函數"""

@@ -2,25 +2,27 @@
 """
 Create a minimal vector database for testing O-RAN × Nephio RAG system
 """
-import sys
 import os
+import sys
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 
 def create_minimal_database():
     """Create a minimal database with sample documents"""
     print("[*] Creating minimal vector database for testing...")
-    
+
     try:
-        from oran_nephio_rag_fixed import PuterRAGSystem
-        from config import Config
         from langchain.docstore.document import Document
-        
+
+        from config import Config
+        from oran_nephio_rag_fixed import PuterRAGSystem
+
         # Initialize components
         config = Config()
         rag_system = PuterRAGSystem(config)
-        
+
         # Create sample documents about O-RAN and Nephio
         sample_docs = [
             Document(
@@ -30,11 +32,7 @@ def create_minimal_database():
                 simplifying the lifecycle management of network functions through GitOps principles 
                 and declarative configuration management.
                 """,
-                metadata={
-                    "source": "nephio-overview",
-                    "type": "documentation",
-                    "description": "Nephio Overview"
-                }
+                metadata={"source": "nephio-overview", "type": "documentation", "description": "Nephio Overview"},
             ),
             Document(
                 page_content="""
@@ -43,11 +41,7 @@ def create_minimal_database():
                 standardized interfaces, and AI/ML-driven optimization. O-RAN enables multi-vendor 
                 interoperability and innovation in 5G networks.
                 """,
-                metadata={
-                    "source": "oran-overview",
-                    "type": "documentation", 
-                    "description": "O-RAN Overview"
-                }
+                metadata={"source": "oran-overview", "type": "documentation", "description": "O-RAN Overview"},
             ),
             Document(
                 page_content="""
@@ -59,8 +53,8 @@ def create_minimal_database():
                 metadata={
                     "source": "scale-out-guide",
                     "type": "documentation",
-                    "description": "Network Function Scale-out Guide"
-                }
+                    "description": "Network Function Scale-out Guide",
+                },
             ),
             Document(
                 page_content="""
@@ -70,10 +64,10 @@ def create_minimal_database():
                 while maintaining service quality.
                 """,
                 metadata={
-                    "source": "scale-in-guide", 
+                    "source": "scale-in-guide",
                     "type": "documentation",
-                    "description": "Network Function Scale-in Guide"
-                }
+                    "description": "Network Function Scale-in Guide",
+                },
             ),
             Document(
                 page_content="""
@@ -85,41 +79,41 @@ def create_minimal_database():
                 metadata={
                     "source": "oran-nephio-integration",
                     "type": "documentation",
-                    "description": "O-RAN Nephio Integration"
-                }
-            )
+                    "description": "O-RAN Nephio Integration",
+                },
+            ),
         ]
-        
+
         print(f"[+] Created {len(sample_docs)} sample documents")
-        
+
         # Add sample documents to the system's vector database
         print("[*] Adding documents to vector database...")
         rag_system.vectordb.add_documents(sample_docs)
-        
+
         # Save the database to the expected location
         print("[*] Saving vector database...")
         rag_system.vectordb.save()
-        
+
         print("[+] Minimal vector database created successfully!")
-        
+
         # Test loading
         print("[*] Testing database loading...")
         if rag_system.load_existing_database():
             print("[+] Database loading successful!")
-            
+
             # Setup QA chain
             print("[*] Setting up QA chain...")
             if rag_system.setup_qa_chain():
                 print("[+] QA chain setup successful!")
-                
+
                 # Test similarity search
                 print("[*] Testing similarity search...")
                 results = rag_system.vectordb.similarity_search("What is Nephio?", k=2)
                 print(f"[+] Found {len(results)} similar documents")
-                
+
                 for i, doc in enumerate(results, 1):
                     print(f"   {i}. {doc.metadata.get('description', 'Unknown')}")
-                
+
                 return True
             else:
                 print("[-] QA chain setup failed")
@@ -127,20 +121,22 @@ def create_minimal_database():
         else:
             print("[-] Database loading failed")
             return False
-            
+
     except Exception as e:
         print(f"[-] Failed to create minimal database: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     print("=" * 60)
     print("O-RAN x Nephio RAG System - Minimal Database Creator")
     print("=" * 60)
-    
+
     success = create_minimal_database()
-    
+
     print("\n" + "=" * 60)
     if success:
         print("[+] Minimal database ready!")
