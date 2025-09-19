@@ -1,0 +1,12 @@
+refactor: reorganize project structure and move files to appropriate directories
+
+- Move test files from root to tests/ directory (17 files)
+- Move setup scripts to scripts/setup/ directory
+- Move maintenance scripts to scripts/maintenance/ directory
+- Create organized directory structure following best practices
+- Follow CLAUDE.md guidelines: "NEVER save working files, text/mds and tests to the root folder"
+
+Moved files:
+- test_*.py -> tests/
+- setup scripts -> scripts/setup/
+- maintenance scripts -> scripts/maintenance/

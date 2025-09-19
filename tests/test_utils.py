@@ -1,4 +1,4 @@
-from utils import batch_generator
+from src.utils.helpers import batch_generator
 
 
 def test_batch_generator_exact_division():

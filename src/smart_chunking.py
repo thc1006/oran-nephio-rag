@@ -5,6 +5,7 @@ Advanced semantic-aware chunking with domain-specific optimization
 
 import logging
 import re
+import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
